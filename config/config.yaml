@@ -59,6 +59,13 @@ estrategia:
   rsi_compra_min: {valor: 40, min: 40, max: 60}   # zona favorable para largos: rsi_compra_min..rsi_sobrecompra
   rsi_sobrecompra: {valor: 70, min: 65, max: 80}
   confianza_min: {valor: 0.6, min: 0.6, max: 0.85}
+  atr_mult_sl: {valor: 1.5, min: 1.0, max: 3.0}   # stop loss técnico a N x ATR del precio de entrada
+  ratio_tp: {valor: 2.0, min: 1.5, max: 3.0}      # take profit = N x distancia del stop loss
+
+# Ventana horaria (fija): no se generan señales cuya entrada caiga después del cierre diario
+# ni demasiado cerca de él.
+senales:
+  horas_minimas_antes_cierre: 2
 
 claude:
   modelo: claude-sonnet-5

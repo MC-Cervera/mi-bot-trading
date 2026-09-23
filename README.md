@@ -3,7 +3,7 @@
 Bot de trading de criptomonedas en Python: análisis técnico (EMA, volumen, RSI) + noticias + Claude como asesor,
 con una capa de riesgo en código que tiene la última palabra. **Prioridad n.º 1: proteger el capital.**
 
-> Estado: **Fase 1 de 8** (estructura, configuración, conexión de solo lectura, histórico).
+> Estado: **Fase 2 de 8** completada (indicadores y señales técnicas).
 > El README completo llegará en la Fase 8.
 
 ## Decisiones acordadas
@@ -15,7 +15,7 @@ con una capa de riesgo en código que tiene la última palabra. **Prioridad n.º
 | Temporalidad | 1h. Largos y cortos. Todo se cierra a las **23:00 UTC** y no se abre nada hasta las 00:00 UTC |
 | Capital de simulación | 1000 USD |
 | Stop loss | Obligatorio, 8 USD de pérdida máxima por operación (= 0.8% de 1000 USD) |
-| Claude | Sonnet (`claude-sonnet-5`), presupuesto mensual configurable |
+| Claude | Sonnet (`claude-sonnet-5`), presupuesto máximo 15 USD/mes |
 | Noticias | RSS de CoinDesk, Cointelegraph, Decrypt. Se medirá el impacto real de cada noticia en el precio |
 | Avisos | Telegram (requiere crear un bot con @BotFather) |
 | Comparación Claude vs. técnico | Solo en paper trading en paralelo (un backtest con Claude estaría contaminado) |
@@ -44,8 +44,26 @@ copy .env.example .env            # y rellena las claves (opcional en Fase 1)
 ```powershell
 python scripts/verificar_conexion.py     # comprueba configuración, datos públicos y (si hay claves) saldo y permisos
 python scripts/descargar_historico.py    # descarga ~2 años de velas 1h de los 15 pares a data/bot.db
+python scripts/escanear_senales.py --ultimas 2   # cuántas señales da la estrategia por par y por qué
 python -m pytest                          # pruebas
 ```
+
+## Estrategia técnica (Fase 2)
+
+Se evalúa al **cierre** de cada vela de 1h; la entrada sería en la apertura de la siguiente.
+
+| | Largo | Corto |
+|---|---|---|
+| Tendencia | EMA 9 cruza **encima** de EMA 21 | EMA 9 cruza **debajo** de EMA 21 |
+| Volumen | ≥ 1.5x el promedio de las 20 velas anteriores | igual |
+| RSI (14) | entre 40 y 70 (impulso sin sobrecompra) | entre 30 y 60 (debilidad sin sobreventa) |
+| Horario | la entrada debe quedar ≥ 2 h antes del cierre diario de las 23:00 UTC | igual |
+| Stop loss técnico | entrada − 1.5 × ATR(14) | entrada + 1.5 × ATR(14) |
+| Take profit | 2 × la distancia del stop | igual |
+
+Los cruces que no cumplen todo se guardan como **descartados** con su motivo: son el grupo de control del aprendizaje.
+Los indicadores están implementados a mano (sin pandas-ta) y validados contra los ejemplos de referencia de
+StockCharts. Hay pruebas que demuestran que ni indicadores ni señales usan datos del futuro.
 
 La descarga es incremental: al volver a ejecutarla solo baja las velas nuevas. No necesita claves.
 
@@ -62,7 +80,9 @@ config/config.yaml      configuración (riesgo fijo + parámetros ajustables con
 bot/config.py           carga y validación; candado de dinero real
 bot/datos/exchange.py   clientes ccxt (datos públicos y cuenta demo), saldo, permisos
 bot/datos/historico.py  descarga paginada, velas cerradas únicamente, huecos, upsert en SQLite
-bot/db/                 modelos SQLAlchemy y sesión
+bot/indicadores.py      EMA, RSI de Wilder, volumen relativo, ATR
+bot/senales.py          reglas de señal, motivos de descarte, explicación para el diario
+bot/db/                 modelos SQLAlchemy (velas, señales) y sesión
 scripts/                comandos de línea
 tests/                  pruebas pytest
 ```

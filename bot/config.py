@@ -78,12 +78,18 @@ class ConfigEstrategia(BaseModel):
     rsi_compra_min: ParametroAjustable
     rsi_sobrecompra: ParametroAjustable
     confianza_min: ParametroAjustable
+    atr_mult_sl: ParametroAjustable
+    ratio_tp: ParametroAjustable
 
     @model_validator(mode="after")
     def _emas_coherentes(self) -> "ConfigEstrategia":
         if self.ema_rapida.valor >= self.ema_lenta.valor:
             raise ValueError("ema_rapida debe ser menor que ema_lenta")
         return self
+
+
+class ConfigSenales(BaseModel):
+    horas_minimas_antes_cierre: int = Field(ge=0, le=23)
 
 
 class ConfigClaude(BaseModel):
@@ -117,6 +123,7 @@ class Config(BaseModel):
     capital: ConfigCapital
     riesgo: ConfigRiesgo
     estrategia: ConfigEstrategia
+    senales: ConfigSenales
     claude: ConfigClaude
     noticias: ConfigNoticias
     telegram: ConfigTelegram
