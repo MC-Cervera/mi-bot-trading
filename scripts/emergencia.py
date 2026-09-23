@@ -11,28 +11,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pandas as pd  # noqa: E402
-
-from bot.arranque import ARCHIVO_DETENER, construir  # noqa: E402
+from bot.emergencia import activar_emergencia  # noqa: E402
 
 
 def main() -> int:
     if "--si" not in sys.argv and input("¿Cerrar TODO y detener el bot? Escribe SI: ").strip().upper() != "SI":
         print("Cancelado.")
         return 1
-    ARCHIVO_DETENER.parent.mkdir(exist_ok=True)
-    ARCHIVO_DETENER.write_text(f"Emergencia activada {pd.Timestamp.now(tz='UTC')}\n", encoding="utf-8")
-    _, _, ciclo = construir()
-    ahora = pd.Timestamp.now(tz="UTC")
-    try:
-        precios = ciclo.mercado.precios()
-    except Exception as e:  # noqa: BLE001
-        print(f"[ERROR] No se pudieron obtener precios ({e}). El bot queda detenido; cierra manualmente si hace falta.")
-        precios = {}
-    for nombre, g in ciclo.carteras.items():
-        g.emergencia(precios, ahora)
-        quedan = g.abiertas()
-        print(f"{nombre}: detenida. Posiciones sin cerrar: {[o.par for o in quedan] or 'ninguna'}")
+    r = activar_emergencia("Botón de emergencia (terminal)")
+    if r["error"]:
+        print(f"[ERROR] {r['error']}")
+    for cartera, quedan in r["pendientes"].items():
+        print(f"{cartera}: detenida. Posiciones sin cerrar: {quedan or 'ninguna'}")
     return 0
 
 

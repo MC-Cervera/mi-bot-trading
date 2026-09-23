@@ -102,8 +102,9 @@ def evaluar_apertura(p: Propuesta, e: EstadoRiesgo, config: Config, ahora: pd.Ti
 
     d = 1 if p.direccion == "largo" else -1
     lados_ok = (p.stop_loss > 0 and (p.precio_entrada - p.stop_loss) * d > 0 and (p.take_profit - p.precio_entrada) * d > 0)
-    regla("R7", lados_ok, f"stop loss {p.stop_loss} y objetivo {p.take_profit} en el lado correcto",
-          f"stop loss {p.stop_loss} / objetivo {p.take_profit} inválidos para un {p.direccion} a {p.precio_entrada}")
+    regla("R7", lados_ok, f"stop loss {p.stop_loss:.6g} y objetivo {p.take_profit:.6g} en el lado correcto",
+          f"stop loss {p.stop_loss:.6g} / objetivo {p.take_profit:.6g} inválidos para un {p.direccion} a "
+          f"{p.precio_entrada:.6g}")
 
     dist_pct = abs(p.precio_entrada - p.stop_loss) / p.precio_entrada * 100 if p.precio_entrada > 0 else 0.0
     ej = config.ejecucion

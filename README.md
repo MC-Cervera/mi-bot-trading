@@ -3,7 +3,7 @@
 Bot de trading de criptomonedas en Python: análisis técnico (EMA, volumen, RSI) + noticias + Claude como asesor,
 con una capa de riesgo en código que tiene la última palabra. **Prioridad n.º 1: proteger el capital.**
 
-> Estado: **Fase 6 de 8** completada (sistema de aprendizaje).
+> Estado: **Fase 7 de 8** completada (panel web).
 > El README completo llegará en la Fase 8.
 
 ## Decisiones acordadas
@@ -54,6 +54,7 @@ python scripts/estado.py --diario 3      # estado, posiciones, eventos y diario 
 python scripts/emergencia.py             # BOTÓN DE EMERGENCIA: cierra todo y detiene el bot
 python scripts/reactivar.py              # reactivar tras revisar una emergencia o una parada por caída máxima
 python scripts/aprendizaje.py listar     # hipótesis, lecciones y ajustes vigentes (ver/revisar/revertir: --help)
+streamlit run panel/app.py               # PANEL WEB en http://localhost:8501
 python -m pytest                          # pruebas
 ```
 
@@ -167,6 +168,39 @@ forma que el código pueda probarla: un *filtro* ("operaciones con volumen ≥ 2
 Claude solo propone: sus hipótesis pasan exactamente las mismas pruebas y no puede validar ni cambiar nada.
 Un ajuste también se puede revertir a mano: `python scripts/aprendizaje.py revertir <id> "motivo"`.
 
+## Panel web (Fase 7)
+
+```powershell
+streamlit run panel/app.py        # se abre en el navegador: http://localhost:8501
+```
+
+| Sección | Qué muestra |
+|---|---|
+| Resumen | Capital, valor de posiciones, resultado total y del día, estado de cada cartera, **botón de emergencia**, últimos eventos de riesgo |
+| Operaciones | Tasa de acierto, factor de beneficio, Sharpe, peor racha, caída máxima; curva de capital y drawdown; resultados diarios / semanales / mensuales / anuales; tabla filtrable |
+| Detalle de operación | Diario completo: señal técnica exacta, qué dijo Claude (y el contexto que recibió), noticias, reglas que la permitieron, lecciones aplicadas, salida y análisis posterior |
+| Aprendizaje | Hipótesis y Lo aprendido por separado, con buscador y filtros; evidencia, operaciones relacionadas e historial; cambios de configuración |
+| Noticias | Noticias recientes con sentimiento e impacto; **impacto real medido** por tema |
+| Costos | Gasto en Claude frente a lo que aportó respecto a la cartera de control: ¿la IA se paga sola? |
+
+Cada sección tiene un desplegable "¿Qué significa esto?" en lenguaje claro.
+
+**Ver el panel con datos de demostración** (precios sintéticos y un Claude simulado, solo para conocerlo):
+
+```powershell
+python scripts/datos_demo.py
+$env:PANEL_DB="data/demo.db"; streamlit run panel/app.py
+```
+
+**En el VPS:** no expongas el panel a internet. Arráncalo solo en local y entra por un túnel SSH:
+
+```bash
+streamlit run panel/app.py --server.address 127.0.0.1      # en el VPS
+ssh -L 8501:localhost:8501 usuario@tu-vps                  # en tu PC; luego abre http://localhost:8501
+```
+
+Además, pon `PANEL_CLAVE=` en `.env` para exigir contraseña.
+
 ### Telegram
 
 1. En Telegram busca **@BotFather** → `/newbot` → copia el token en `.env` (`TELEGRAM_BOT_TOKEN=`).
@@ -203,6 +237,7 @@ bot/cartera.py          gestor de cartera: aperturas, cierres, stops, funding, l
 bot/ciclo.py            orquestación del paper trading (horario, monitor, noticias)
 bot/diario.py           diario de trading y análisis posterior
 bot/ejecucion/          broker simulado y Binance Demo (experimental)
+panel/                  panel web (Streamlit + Plotly): consultas (datos.py), gráficas (graficos.py), interfaz (app.py)
 bot/aprendizaje/        hipótesis, pruebas estadísticas, lecciones, ajustes reversibles y revisión con Claude
 bot/notificaciones.py   avisos por Telegram
 bot/db/                 modelos SQLAlchemy (velas, señales, noticias, operaciones, eventos, carteras…) y sesión

@@ -9,3 +9,5 @@ pytest>=8.0
 anthropic>=1.8
 feedparser>=6.0
 apscheduler>=3.10,<4
+streamlit>=1.40
+plotly>=5.20
