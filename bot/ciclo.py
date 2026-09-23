@@ -16,6 +16,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from bot.aprendizaje.ajustes import config_efectiva
 from bot.cartera import CARTERA_CLAUDE, CARTERA_SOLO, GestorCartera, ms
 from bot.config import Config
 from bot.datos.historico import cargar_velas, ms_temporalidad
@@ -53,7 +54,8 @@ class Ciclo:
                  cliente_claude: ClienteClaude | None, avisos: Notificador, lecciones: Lecciones | None = None,
                  lector_rss=descargar_fuente):
         self.s = sesion
-        self.config = config
+        self.config_base = config   # config.yaml
+        self.config = config        # config.yaml + ajustes del aprendizaje (se refresca en cada ciclo)
         self.mercado = mercado
         self.carteras = carteras
         self.claude = cliente_claude
@@ -80,7 +82,11 @@ class Ciclo:
         return ParametrosSenal.desde_config(self.config)
 
     # ------------------------------------------------------------------ ciclo principal
+    def _refrescar_config(self) -> None:
+        self.config = config_efectiva(self.config_base, self.s)
+
     def ciclo_horario(self, ahora: pd.Timestamp) -> None:
+        self._refrescar_config()
         self.mercado.actualizar(ahora)
         precios = self.mercado.precios()
         p = self._parametros()
@@ -207,6 +213,7 @@ class Ciclo:
 
     # ------------------------------------------------------------------ noticias
     def ciclo_noticias(self, ahora: pd.Timestamp) -> None:
+        self._refrescar_config()
         bases = [base_de(p) for p in self.config.pares]
         for url in self.config.noticias.fuentes_rss:
             guardar_nuevas(self.s, self.lector_rss(url, ms(ahora)), bases, ms(ahora))

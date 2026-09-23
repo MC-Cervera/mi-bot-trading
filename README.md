@@ -3,7 +3,7 @@
 Bot de trading de criptomonedas en Python: análisis técnico (EMA, volumen, RSI) + noticias + Claude como asesor,
 con una capa de riesgo en código que tiene la última palabra. **Prioridad n.º 1: proteger el capital.**
 
-> Estado: **Fase 5 de 8** completada (capa de riesgo y paper trading).
+> Estado: **Fase 6 de 8** completada (sistema de aprendizaje).
 > El README completo llegará en la Fase 8.
 
 ## Decisiones acordadas
@@ -53,6 +53,7 @@ python scripts/bot.py                    # arranca el PAPER TRADING (déjalo cor
 python scripts/estado.py --diario 3      # estado, posiciones, eventos y diario de las últimas 3 operaciones
 python scripts/emergencia.py             # BOTÓN DE EMERGENCIA: cierra todo y detiene el bot
 python scripts/reactivar.py              # reactivar tras revisar una emergencia o una parada por caída máxima
+python scripts/aprendizaje.py listar     # hipótesis, lecciones y ajustes vigentes (ver/revisar/revertir: --help)
 python -m pytest                          # pruebas
 ```
 
@@ -143,6 +144,29 @@ noticias consideradas, plan, cómo salió y un análisis posterior (mejor y peor
 duplica una señal). `broker: binance_demo` envía órdenes reales a demo.binance.com con stop y objetivo colocados en
 el exchange — **experimental**: primero ejecuta `python scripts/probar_orden_demo.py` y actívalo solo si sale OK.
 
+## Aprendizaje (Fase 6)
+
+El bot separa lo que **sospecha** (hipótesis) de lo que **ha demostrado** (lecciones). Toda hipótesis se escribe de
+forma que el código pueda probarla: un *filtro* ("operaciones con volumen ≥ 2x rinden mejor que el resto") o un
+*parámetro* ("multiplicador de volumen 2.0 en vez de 1.5 mejora el resultado").
+
+**Cada domingo a las 23:30 UTC** (o con `python scripts/aprendizaje.py revisar`):
+1. **Propone** hipótesis: el buscador estadístico revisa subgrupos y parámetros vecinos, y Claude propone hasta 5
+   ideas. Ambos ven solo el tramo de **exploración** (60% más antiguo del histórico) y el paper trading.
+2. **Prueba** cada hipótesis en tres etapas, con datos distintos cada vez:
+   - *confirmación* en el 40% más reciente del histórico, que el buscador no vio;
+   - *hacia adelante* con datos generados **después** de crearla (imposible haberlos visto).
+   Para pasar se exige: al menos 30 operaciones en grupo y control, diferencia ≥ 0.10R en la dirección esperada,
+   p < 0.05 (prueba de permutación) y que se repita en las dos mitades del periodo.
+3. **Lecciones:** una hipótesis validada se convierte en lección vigente y se pasa a Claude en cada decisión. Si es
+   de parámetro, se aplica el ajuste (solo parámetros de estrategia, siempre dentro de tus rangos, con valor anterior,
+   justificación e historial). Las reglas de riesgo nunca se tocan.
+4. **Revalida** las lecciones con los datos posteriores a su validación: si el efecto se debilita pasa a *en revisión*;
+   si se invierte o sigue fallando se **refuta**, se **revierte** su ajuste y se explica por qué.
+
+Claude solo propone: sus hipótesis pasan exactamente las mismas pruebas y no puede validar ni cambiar nada.
+Un ajuste también se puede revertir a mano: `python scripts/aprendizaje.py revertir <id> "motivo"`.
+
 ### Telegram
 
 1. En Telegram busca **@BotFather** → `/newbot` → copia el token en `.env` (`TELEGRAM_BOT_TOKEN=`).
@@ -179,6 +203,7 @@ bot/cartera.py          gestor de cartera: aperturas, cierres, stops, funding, l
 bot/ciclo.py            orquestación del paper trading (horario, monitor, noticias)
 bot/diario.py           diario de trading y análisis posterior
 bot/ejecucion/          broker simulado y Binance Demo (experimental)
+bot/aprendizaje/        hipótesis, pruebas estadísticas, lecciones, ajustes reversibles y revisión con Claude
 bot/notificaciones.py   avisos por Telegram
 bot/db/                 modelos SQLAlchemy (velas, señales, noticias, operaciones, eventos, carteras…) y sesión
 scripts/                comandos de línea

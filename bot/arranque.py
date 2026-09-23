@@ -1,6 +1,7 @@
 """Construye todas las piezas del bot a partir de la configuración (lo usan los scripts)."""
 from __future__ import annotations
 
+from bot.aprendizaje.motor import ProveedorLecciones
 from bot.cartera import CARTERA_CLAUDE, CARTERA_SOLO, GestorCartera
 from bot.ciclo import Ciclo
 from bot.config import RAIZ, cargar_config, cargar_secretos, validar_seguridad
@@ -34,5 +35,5 @@ def construir(con_mercado: bool = True):
     }
     claude = ClienteClaude(config.claude, sesion, api_key=secretos.anthropic_api_key) if secretos.anthropic_api_key else None
     mercado = MercadoCcxt(sesion, config) if con_mercado else None
-    ciclo = Ciclo(sesion, config, mercado, carteras, claude, avisos)
+    ciclo = Ciclo(sesion, config, mercado, carteras, claude, avisos, lecciones=ProveedorLecciones(sesion))
     return config, sesion, ciclo

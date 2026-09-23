@@ -18,6 +18,7 @@ import pandas as pd  # noqa: E402
 from apscheduler.executors.pool import ThreadPoolExecutor  # noqa: E402
 from apscheduler.schedulers.blocking import BlockingScheduler  # noqa: E402
 
+from bot.aprendizaje.semanal import ejecutar_revision  # noqa: E402
 from bot.arranque import ARCHIVO_DETENER, construir  # noqa: E402
 
 log = logging.getLogger("bot")
@@ -72,6 +73,11 @@ def main() -> int:
     programador.add_job(seguro("monitor", ciclo.monitor), "interval", seconds=config.ejecucion.segundos_monitor)
     programador.add_job(seguro("noticias", ciclo.ciclo_noticias), "interval", minutes=config.noticias.intervalo_minutos,
                         next_run_time=ahora().to_pydatetime())
+    def aprendizaje(t):
+        ejecutar_revision(sesion, ciclo.config_base, t, ciclo.claude, ciclo.avisos, config.claude.esfuerzo_decision)
+
+    # revisión semanal de aprendizaje: domingos 23:30 UTC (después del cierre diario, sin posiciones abiertas)
+    programador.add_job(seguro("aprendizaje", aprendizaje), "cron", day_of_week="sun", hour=23, minute=30)
     ciclo.avisos.enviar("🤖 Bot iniciado en PAPER TRADING (carteras: tecnico_claude y tecnico_solo)")
     print("Bot en marcha (paper trading). Ctrl+C para salir.")
     try:

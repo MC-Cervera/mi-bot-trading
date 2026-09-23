@@ -204,3 +204,76 @@ class PuntoCapital(Base):
     capital: Mapped[float] = mapped_column(Float)
     realizado: Mapped[float] = mapped_column(Float)
     posiciones_abiertas: Mapped[int] = mapped_column(Integer)
+
+
+class Hipotesis(Base):
+    """Algo que el bot sospecha pero aún no ha demostrado. Siempre expresada de forma que el código pueda probarla."""
+
+    __tablename__ = "hipotesis"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(8), unique=True)            # H0001
+    enunciado: Mapped[str] = mapped_column(Text)
+    explicacion: Mapped[str] = mapped_column(Text, default="")             # en lenguaje claro, para aprender
+    origen: Mapped[str] = mapped_column(String(16))                        # estadistico | claude
+    tipo: Mapped[str] = mapped_column(String(12))                          # filtro | parametro
+    condiciones: Mapped[str] = mapped_column(Text, default="[]")           # JSON (tipo filtro)
+    parametro: Mapped[str | None] = mapped_column(String(32))              # tipo parametro
+    valor_propuesto: Mapped[float | None] = mapped_column(Float)
+    efecto_esperado: Mapped[str] = mapped_column(String(8))                # mejor | peor
+    metrica: Mapped[str] = mapped_column(String(64), default="R medio por operación (grupo vs. control)")
+    muestra_minima: Mapped[int] = mapped_column(Integer, default=30)
+    estado: Mapped[str] = mapped_column(String(16), index=True)            # propuesta | en_prueba | validada | descartada
+    motivo_estado: Mapped[str] = mapped_column(Text, default="")
+    creada_ms: Mapped[int] = mapped_column(BigInteger)
+    actualizada_ms: Mapped[int] = mapped_column(BigInteger)
+    evidencia_backtest: Mapped[str | None] = mapped_column(Text)           # JSON
+    evidencia_adelante: Mapped[str | None] = mapped_column(Text)           # JSON (datos posteriores a su creación)
+    firma: Mapped[str] = mapped_column(String(200), index=True)            # para no proponer dos veces lo mismo
+
+
+class Leccion(Base):
+    """Hipótesis que pasó la prueba. Se pasa a Claude en cada decisión mientras esté vigente."""
+
+    __tablename__ = "lecciones"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(8), unique=True)            # L0001
+    hipotesis_id: Mapped[int] = mapped_column(ForeignKey("hipotesis.id"))
+    enunciado: Mapped[str] = mapped_column(Text)
+    explicacion: Mapped[str] = mapped_column(Text, default="")
+    evidencia: Mapped[str] = mapped_column(Text)                           # JSON: n, acierto, R medio, control, p, fechas
+    estado: Mapped[str] = mapped_column(String(16), index=True)            # vigente | en_revision | refutada
+    motivo_estado: Mapped[str] = mapped_column(Text, default="")
+    validada_ms: Mapped[int] = mapped_column(BigInteger)
+    revisada_ms: Mapped[int | None] = mapped_column(BigInteger)
+    ajuste_id: Mapped[int | None] = mapped_column(Integer)
+
+
+class AjusteParametro(Base):
+    """Cambio del bot a su propia configuración. Siempre dentro de los rangos del dueño y reversible."""
+
+    __tablename__ = "ajustes_parametros"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    parametro: Mapped[str] = mapped_column(String(32), index=True)
+    valor_anterior: Mapped[float] = mapped_column(Float)
+    valor_nuevo: Mapped[float] = mapped_column(Float)
+    justificacion: Mapped[str] = mapped_column(Text)
+    leccion_id: Mapped[int | None] = mapped_column(Integer)
+    creado_ms: Mapped[int] = mapped_column(BigInteger)
+    revertido_ms: Mapped[int | None] = mapped_column(BigInteger)
+    motivo_reversion: Mapped[str | None] = mapped_column(Text)
+
+
+class HistorialAprendizaje(Base):
+    """Todo lo que le pasa a una hipótesis, lección o ajuste, en orden y en lenguaje claro."""
+
+    __tablename__ = "historial_aprendizaje"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ts_ms: Mapped[int] = mapped_column(BigInteger, index=True)
+    entidad: Mapped[str] = mapped_column(String(16))                       # hipotesis | leccion | ajuste | revision
+    entidad_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    evento: Mapped[str] = mapped_column(String(32))
+    detalle: Mapped[str] = mapped_column(Text)
