@@ -62,3 +62,17 @@ def test_ema_rapida_debe_ser_menor_que_lenta(config_dict):
     config_dict["estrategia"]["ema_lenta"]["valor"] = 21
     with pytest.raises(ValidationError):
         Config.model_validate(config_dict)
+
+
+def test_env_example_no_contiene_secretos():
+    """.env.example se sube a GitHub: debe tener todas las variables vacías. Las claves reales van SOLO en .env."""
+    from bot.config import RAIZ
+    for linea in (RAIZ / ".env.example").read_text(encoding="utf-8").splitlines():
+        if linea.strip() and not linea.lstrip().startswith("#"):
+            nombre, _, valor = linea.partition("=")
+            assert valor.strip() == "", f"{nombre} tiene un valor en .env.example: ¡nunca pongas claves reales ahí!"
+
+
+def test_env_esta_ignorado_por_git():
+    from bot.config import RAIZ
+    assert ".env" in (RAIZ / ".gitignore").read_text(encoding="utf-8").splitlines()
