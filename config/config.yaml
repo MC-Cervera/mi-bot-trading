@@ -84,6 +84,16 @@ backtest:
       atr_mult_sl: [1.0, 1.5, 2.0]
       ratio_tp: [1.5, 2.0, 3.0]
 
+# Ejecución en paper trading. Dos carteras simuladas corren en paralelo con los MISMOS precios y señales:
+#   tecnico_claude: señal técnica -> Claude -> capa de riesgo -> orden
+#   tecnico_solo:   señal técnica ---------> capa de riesgo -> orden   (grupo de control para medir si Claude aporta)
+ejecucion:
+  broker: simulado              # simulado (recomendado) | binance_demo (envía órdenes reales a demo.binance.com)
+  distancia_stop_min_pct: 0.2   # stops más cercanos que esto se bloquean (el ruido los saltaría y el tamaño sería enorme)
+  distancia_stop_max_pct: 10.0  # stops más lejanos que esto se bloquean
+  minuto_ciclo: 1               # el ciclo principal corre cada hora en el minuto 1 (vela recién cerrada)
+  segundos_monitor: 60          # cada cuánto se revisan stop loss / take profit con el precio actual
+
 claude:
   modelo: claude-sonnet-5
   presupuesto_mensual_usd: 15   # al alcanzarlo el bot deja de llamar a Claude y NO abre operaciones

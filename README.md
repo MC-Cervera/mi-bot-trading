@@ -3,7 +3,7 @@
 Bot de trading de criptomonedas en Python: análisis técnico (EMA, volumen, RSI) + noticias + Claude como asesor,
 con una capa de riesgo en código que tiene la última palabra. **Prioridad n.º 1: proteger el capital.**
 
-> Estado: **Fase 4 de 8** completada (noticias y capa de decisión con Claude).
+> Estado: **Fase 5 de 8** completada (capa de riesgo y paper trading).
 > El README completo llegará en la Fase 8.
 
 ## Decisiones acordadas
@@ -49,6 +49,10 @@ python scripts/backtest.py               # backtest walk-forward (~1-3 min); inf
 python scripts/noticias.py               # lee RSS, analiza con Claude, mide impacto real y muestra estadísticas
 python scripts/probar_decision.py --par BTC/USDT            # contexto que recibiría Claude (gratis)
 python scripts/probar_decision.py --par BTC/USDT --llamar   # consulta real a Claude (~0.01-0.05 USD)
+python scripts/bot.py                    # arranca el PAPER TRADING (déjalo corriendo)
+python scripts/estado.py --diario 3      # estado, posiciones, eventos y diario de las últimas 3 operaciones
+python scripts/emergencia.py             # BOTÓN DE EMERGENCIA: cierra todo y detiene el bot
+python scripts/reactivar.py              # reactivar tras revisar una emergencia o una parada por caída máxima
 python -m pytest                          # pruebas
 ```
 
@@ -109,6 +113,43 @@ lado equivocado · cierre una posición inexistente · cite lecciones que no exi
 el bot deja de llamar a Claude y **no abre operaciones**. Cualquier error, rechazo o respuesta inválida = no operar.
 El prompt de sistema es fijo y se cachea para abaratar las llamadas.
 
+## Paper trading (Fase 5)
+
+Corren **dos carteras en paralelo** con los mismos precios y señales, cada una con 1000 USD simulados:
+
+| Cartera | Flujo |
+|---|---|
+| `tecnico_claude` | señal técnica → Claude → capa de riesgo → orden |
+| `tecnico_solo` | señal técnica → capa de riesgo → orden (grupo de control) |
+
+Así se mide si Claude aporta algo o solo cuesta dinero.
+
+**Ciclo:** cada hora (minuto 1, con la vela recién cerrada) se buscan señales; cada minuto se vigilan stop loss y
+objetivos con el precio actual; cada 30 min se revisan noticias. A las 23:00 UTC se cierra todo.
+
+**Capa de riesgo (`bot/riesgo.py`)** — decide al final y registra cada bloqueo con su motivo:
+R1 bot activo · R2 pérdida diaria < 3% · R3 caída desde el máximo < 15% · R4 ≥ 2 h antes del cierre ·
+R5 ≤ 3 posiciones · R6 una posición por par · R7 stop loss obligatorio y bien colocado ·
+R8 distancia del stop entre 0.2% y 10% · R9 confianza de Claude ≥ 0.6 y respuesta coherente ·
+R10 pérdida en el stop ≤ 8 USD (o 1% del capital si es menor; Claude solo puede reducirla), exposición ≤ capital × 1.
+Al llegar al −3% diario la cartera se pausa hasta el día siguiente; al −15% desde el máximo se cierra todo,
+se detiene y se avisa por Telegram. Solo `scripts/reactivar.py` la vuelve a activar.
+
+**Trazabilidad:** cada operación guarda la señal que la originó, la consulta a Claude (contexto, respuesta,
+costo), quién la sugirió, qué reglas la permitieron y un **diario** en lenguaje claro: qué se vio, qué dijo Claude,
+noticias consideradas, plan, cómo salió y un análisis posterior (mejor y peor momento en R, costos, observaciones).
+
+**Ejecución:** por defecto `broker: simulado` (comisión, deslizamiento y funding como en el backtest; nunca
+duplica una señal). `broker: binance_demo` envía órdenes reales a demo.binance.com con stop y objetivo colocados en
+el exchange — **experimental**: primero ejecuta `python scripts/probar_orden_demo.py` y actívalo solo si sale OK.
+
+### Telegram
+
+1. En Telegram busca **@BotFather** → `/newbot` → copia el token en `.env` (`TELEGRAM_BOT_TOKEN=`).
+2. Envía cualquier mensaje a tu bot nuevo.
+3. `python scripts/telegram_chat_id.py` → copia el número en `.env` (`TELEGRAM_CHAT_ID=`).
+4. En `config/config.yaml` pon `telegram: habilitado: true`.
+
 ### Clave de Anthropic
 
 Créala en https://console.anthropic.com → API Keys y ponla en `.env` como `ANTHROPIC_API_KEY=` (nunca en
@@ -133,7 +174,13 @@ bot/dimensionamiento.py tamaño de posición para que el stop cueste lo planific
 bot/backtest/           motor vela a vela, métricas, comprar y mantener, walk-forward, informe
 bot/noticias/           fuentes RSS, filtro por activo, análisis con Claude, impacto real y estadísticas
 bot/ia/                 cliente de Claude (presupuesto y costos), contexto y capa de decisión
-bot/db/                 modelos SQLAlchemy (velas, señales, noticias, impacto, llamadas a Claude) y sesión
+bot/riesgo.py           capa de riesgo (reglas R1-R10, pausas y paradas)
+bot/cartera.py          gestor de cartera: aperturas, cierres, stops, funding, límites, emergencia, curva de capital
+bot/ciclo.py            orquestación del paper trading (horario, monitor, noticias)
+bot/diario.py           diario de trading y análisis posterior
+bot/ejecucion/          broker simulado y Binance Demo (experimental)
+bot/notificaciones.py   avisos por Telegram
+bot/db/                 modelos SQLAlchemy (velas, señales, noticias, operaciones, eventos, carteras…) y sesión
 scripts/                comandos de línea
 tests/                  pruebas pytest
 ```

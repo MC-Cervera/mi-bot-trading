@@ -17,7 +17,7 @@ from bot.db.modelos import Vela
 log = logging.getLogger(__name__)
 
 COLUMNAS = ["ts", "open", "high", "low", "close", "volume"]
-MAX_REINTENTOS = 5
+MAX_REINTENTOS = 3
 
 
 def ms_temporalidad(temporalidad: str) -> int:

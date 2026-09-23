@@ -119,3 +119,88 @@ class LlamadaClaude(Base):
     tokens_cache_escritura: Mapped[int] = mapped_column(Integer, default=0)
     costo_usd: Mapped[float] = mapped_column(Float, default=0.0)
     id_solicitud: Mapped[str | None] = mapped_column(String(64))
+
+
+class Operacion(Base):
+    """Operación (paper o demo). Rastreable de punta a punta: señal -> decisión de Claude -> regla que la permitió."""
+
+    __tablename__ = "operaciones"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    id_cliente: Mapped[str] = mapped_column(String(96), unique=True)  # clave de idempotencia: nunca dos veces la misma señal
+    cartera: Mapped[str] = mapped_column(String(32), index=True)       # tecnico_claude | tecnico_solo
+    par: Mapped[str] = mapped_column(String(32), index=True)
+    direccion: Mapped[str] = mapped_column(String(8))
+    estado: Mapped[str] = mapped_column(String(12), index=True)        # abierta | cerrada
+    ts_senal_ms: Mapped[int] = mapped_column(BigInteger)
+    ts_entrada_ms: Mapped[int] = mapped_column(BigInteger, index=True)
+    ts_salida_ms: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    precio_entrada: Mapped[float] = mapped_column(Float)
+    precio_salida: Mapped[float | None] = mapped_column(Float)
+    cantidad: Mapped[float] = mapped_column(Float)
+    nocional: Mapped[float] = mapped_column(Float)
+    stop_loss: Mapped[float] = mapped_column(Float)
+    take_profit: Mapped[float] = mapped_column(Float)
+    riesgo_usd: Mapped[float] = mapped_column(Float)
+    comisiones: Mapped[float] = mapped_column(Float, default=0.0)
+    funding: Mapped[float] = mapped_column(Float, default=0.0)
+    ultimo_funding_ms: Mapped[int | None] = mapped_column(BigInteger)
+    pnl_neto: Mapped[float | None] = mapped_column(Float)
+    r_multiple: Mapped[float | None] = mapped_column(Float)
+    motivo_salida: Mapped[str | None] = mapped_column(String(32))
+    max_favorable: Mapped[float | None] = mapped_column(Float)   # mejor precio alcanzado (para el análisis posterior)
+    max_adverso: Mapped[float | None] = mapped_column(Float)     # peor precio alcanzado
+    # trazabilidad
+    senal_id: Mapped[int | None] = mapped_column(Integer)
+    llamada_claude_id: Mapped[int | None] = mapped_column(Integer)
+    sugerida_por: Mapped[str] = mapped_column(String(32))        # "senal_tecnica" | "senal_tecnica+claude"
+    confianza_claude: Mapped[float | None] = mapped_column(Float)
+    lecciones_aplicadas: Mapped[str] = mapped_column(Text, default="[]")
+    reglas_que_permitieron: Mapped[str] = mapped_column(Text, default="[]")
+    ordenes_exchange: Mapped[str] = mapped_column(Text, default="{}")
+    # diario de trading
+    diario_entrada: Mapped[str] = mapped_column(Text, default="")
+    diario_salida: Mapped[str | None] = mapped_column(Text)
+    analisis_post: Mapped[str | None] = mapped_column(Text)
+
+
+class EventoRiesgo(Base):
+    """Bloqueos, pausas, paradas, emergencias y errores de ejecución, con su motivo."""
+
+    __tablename__ = "eventos_riesgo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ts_ms: Mapped[int] = mapped_column(BigInteger, index=True)
+    cartera: Mapped[str] = mapped_column(String(32), index=True)
+    tipo: Mapped[str] = mapped_column(String(32), index=True)
+    par: Mapped[str | None] = mapped_column(String(32))
+    detalle: Mapped[str] = mapped_column(Text)
+    senal_id: Mapped[int | None] = mapped_column(Integer)
+    llamada_claude_id: Mapped[int | None] = mapped_column(Integer)
+
+
+class EstadoCartera(Base):
+    """Estado persistente de cada cartera (sobrevive a reinicios del bot)."""
+
+    __tablename__ = "estado_carteras"
+
+    cartera: Mapped[str] = mapped_column(String(32), primary_key=True)
+    capital_inicial: Mapped[float] = mapped_column(Float)
+    pico: Mapped[float] = mapped_column(Float)
+    estado: Mapped[str] = mapped_column(String(16), default="activo")  # activo | pausado | detenido
+    motivo: Mapped[str] = mapped_column(Text, default="")
+    pausado_dia: Mapped[str | None] = mapped_column(String(10))       # AAAA-MM-DD UTC de la pausa diaria
+
+
+class PuntoCapital(Base):
+    """Foto del capital (marcado a mercado) para la curva de capital y el drawdown del panel."""
+
+    __tablename__ = "curva_capital"
+    __table_args__ = (UniqueConstraint("cartera", "ts_ms", name="uq_punto_capital"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cartera: Mapped[str] = mapped_column(String(32), index=True)
+    ts_ms: Mapped[int] = mapped_column(BigInteger, index=True)
+    capital: Mapped[float] = mapped_column(Float)
+    realizado: Mapped[float] = mapped_column(Float)
+    posiciones_abiertas: Mapped[int] = mapped_column(Integer)

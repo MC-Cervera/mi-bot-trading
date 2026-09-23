@@ -114,6 +114,14 @@ class ConfigBacktest(BaseModel):
     walk_forward: ConfigWalkForward
 
 
+class ConfigEjecucion(BaseModel):
+    broker: Literal["simulado", "binance_demo"] = "simulado"
+    distancia_stop_min_pct: float = Field(default=0.2, gt=0)
+    distancia_stop_max_pct: float = Field(default=10.0, gt=0)
+    minuto_ciclo: int = Field(default=1, ge=0, le=59)
+    segundos_monitor: int = Field(default=60, ge=10)
+
+
 class PreciosClaude(BaseModel):
     entrada: float = Field(ge=0)
     salida: float = Field(ge=0)
@@ -161,6 +169,7 @@ class Config(BaseModel):
     estrategia: ConfigEstrategia
     senales: ConfigSenales
     backtest: ConfigBacktest
+    ejecucion: ConfigEjecucion
     claude: ConfigClaude
     noticias: ConfigNoticias
     telegram: ConfigTelegram
