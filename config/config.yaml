@@ -1,0 +1,78 @@
+# Configuración principal del bot.
+# Los secretos (claves) van en .env, nunca aquí.
+
+# paper = simulación con precios reales. real = dinero real (bloqueado, ver README).
+modo: paper
+
+exchange:
+  nombre: binance
+  # future = futuros perpetuos USDⓈ-M (permite largos y cortos). spot = solo largos.
+  tipo_mercado: future
+  # Las órdenes van a Binance Demo Trading; los datos históricos se leen del mercado real (públicos, sin claves).
+  demo: true
+
+pares:
+  - BTC/USDT
+  - ETH/USDT
+  - BNB/USDT
+  - SOL/USDT
+  - XRP/USDT
+  - ADA/USDT
+  - LINK/USDT
+  - AVAX/USDT
+  - LTC/USDT
+  - DOT/USDT
+  - TRX/USDT
+  - BCH/USDT
+  - XLM/USDT
+  - ATOM/USDT
+  - UNI/USDT
+
+temporalidad: 1h
+
+historico:
+  dias: 730  # ~2 años para backtesting walk-forward
+
+capital:
+  simulado_usd: 1000
+  # Capital de la cuenta real prevista. Solo se usa para validar que las reglas de riesgo son coherentes.
+  real_usd: 50
+
+# Reglas de riesgo FIJAS. El aprendizaje NUNCA puede modificarlas.
+riesgo:
+  sl_usd_por_operacion: 8          # pérdida máxima en USD si salta el stop loss
+  riesgo_max_pct_operacion: 1.0    # el SL en USD no puede superar este % del capital
+  max_posiciones: 3
+  perdida_diaria_max_pct: 3.0
+  drawdown_max_pct: 15.0
+  confianza_min_claude: 0.6
+  apalancamiento: 1
+  hora_cierre_diario_utc: "23:00"  # se cierra todo y no se abren operaciones hasta las 00:00 UTC
+
+# Parámetros de estrategia que el aprendizaje SÍ puede ajustar, siempre dentro de [min, max].
+estrategia:
+  ema_rapida: {valor: 9, min: 5, max: 21}
+  ema_lenta: {valor: 21, min: 20, max: 100}
+  periodo_volumen: {valor: 20, min: 20, max: 20}
+  multiplicador_volumen: {valor: 1.5, min: 1.2, max: 3.0}
+  periodo_rsi: {valor: 14, min: 14, max: 14}
+  rsi_compra_min: {valor: 40, min: 40, max: 60}   # zona favorable para largos: rsi_compra_min..rsi_sobrecompra
+  rsi_sobrecompra: {valor: 70, min: 65, max: 80}
+  confianza_min: {valor: 0.6, min: 0.6, max: 0.85}
+
+claude:
+  modelo: claude-sonnet-5
+  presupuesto_mensual_usd: 15   # al alcanzarlo el bot deja de llamar a Claude y opera en modo conservador (no abre)
+
+noticias:
+  fuentes_rss:
+    - https://www.coindesk.com/arc/outboundfeeds/rss/
+    - https://cointelegraph.com/rss
+    - https://decrypt.co/feed
+
+telegram:
+  habilitado: false
+
+rutas:
+  base_datos: data/bot.db
+  logs: logs/bot.log

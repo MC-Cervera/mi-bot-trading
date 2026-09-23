@@ -1,0 +1,13 @@
+# Secretos
+.env
+
+# Entorno
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Datos y registros locales
+data/*.db
+data/*.db-journal
+logs/*.log*
