@@ -92,6 +92,28 @@ class ConfigSenales(BaseModel):
     horas_minimas_antes_cierre: int = Field(ge=0, le=23)
 
 
+class ConfigRejilla(BaseModel):
+    ema: list[tuple[int, int]]
+    multiplicador_volumen: list[float]
+    atr_mult_sl: list[float]
+    ratio_tp: list[float]
+
+
+class ConfigWalkForward(BaseModel):
+    entrenamiento_meses: int = Field(ge=1)
+    prueba_meses: int = Field(ge=1)
+    min_operaciones_entrenamiento: int = Field(ge=1)
+    rejilla: ConfigRejilla
+
+
+class ConfigBacktest(BaseModel):
+    comision_pct: float = Field(ge=0)
+    slippage_pct: float = Field(ge=0)
+    funding_pct_8h: float = Field(ge=0)
+    nocional_min_usd: float = Field(ge=0)
+    walk_forward: ConfigWalkForward
+
+
 class ConfigClaude(BaseModel):
     modelo: str
     presupuesto_mensual_usd: float = Field(ge=0)
@@ -124,10 +146,31 @@ class Config(BaseModel):
     riesgo: ConfigRiesgo
     estrategia: ConfigEstrategia
     senales: ConfigSenales
+    backtest: ConfigBacktest
     claude: ConfigClaude
     noticias: ConfigNoticias
     telegram: ConfigTelegram
     rutas: ConfigRutas
+
+    @model_validator(mode="after")
+    def _rejilla_dentro_de_rangos(self) -> "Config":
+        """La optimización del backtest tampoco puede salirse de los rangos que definió el dueño."""
+        e, r = self.estrategia, self.backtest.walk_forward.rejilla
+
+        def dentro(nombre: str, valor: float) -> None:
+            rango = getattr(e, nombre)
+            if not rango.min <= valor <= rango.max:
+                raise ValueError(f"rejilla: {nombre}={valor} fuera del rango [{rango.min}, {rango.max}]")
+
+        for rapida, lenta in r.ema:
+            dentro("ema_rapida", rapida)
+            dentro("ema_lenta", lenta)
+            if rapida >= lenta:
+                raise ValueError(f"rejilla: EMA rápida {rapida} debe ser menor que la lenta {lenta}")
+        for nombre in ("multiplicador_volumen", "atr_mult_sl", "ratio_tp"):
+            for v in getattr(r, nombre):
+                dentro(nombre, v)
+        return self
 
     @property
     def capital_operativo(self) -> float:

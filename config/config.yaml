@@ -67,6 +67,23 @@ estrategia:
 senales:
   horas_minimas_antes_cierre: 2
 
+# Supuestos de costos del backtest. Verifica las comisiones reales de tu cuenta (dependen del nivel VIP y de BNB).
+backtest:
+  comision_pct: 0.05        # por lado (entrada y salida), taker de futuros USDⓈ-M en nivel VIP 0
+  slippage_pct: 0.05        # deslizamiento en órdenes a mercado y stops
+  funding_pct_8h: 0.01      # se cobra SIEMPRE como costo (supuesto conservador) a las 00, 08 y 16 UTC
+  nocional_min_usd: 5       # posición mínima; el mínimo real por par se leerá del exchange en la Fase 5
+  walk_forward:
+    entrenamiento_meses: 6
+    prueba_meses: 2
+    min_operaciones_entrenamiento: 30
+    # Combinaciones a probar en cada ventana de entrenamiento (todas dentro de los rangos de `estrategia`).
+    rejilla:
+      ema: [[9, 21], [12, 26], [20, 50]]
+      multiplicador_volumen: [1.2, 1.5, 2.0]
+      atr_mult_sl: [1.0, 1.5, 2.0]
+      ratio_tp: [1.5, 2.0, 3.0]
+
 claude:
   modelo: claude-sonnet-5
   presupuesto_mensual_usd: 15   # al alcanzarlo el bot deja de llamar a Claude y opera en modo conservador (no abre)

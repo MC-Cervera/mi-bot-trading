@@ -85,12 +85,17 @@ def entrada_en_horario(hora_entrada: pd.DatetimeIndex, p: ParametrosSenal) -> np
     return np.asarray(minutos + p.horas_minimas_antes_cierre * 60 <= p.minuto_cierre)
 
 
-def generar_senales(velas: pd.DataFrame, p: ParametrosSenal, temporalidad: str = "1h") -> pd.DataFrame:
+def generar_senales(
+    velas: pd.DataFrame, p: ParametrosSenal, temporalidad: str = "1h",
+    indicadores: pd.DataFrame | None = None, con_motivos: bool = True,
+) -> pd.DataFrame:
     """Calcula indicadores y marca cruces, confirmaciones y señales. Índice: fecha UTC de APERTURA de la vela.
 
     Columnas añadidas: cruce, conf_volumen, conf_rsi, en_horario, senal, sl, tp, motivo.
+    `indicadores`: resultado previo de calcular_indicadores con los mismos periodos (acelera la optimización).
+    `con_motivos=False` omite el texto de descarte (el backtest no lo necesita).
     """
-    df = calcular_indicadores(velas, p.indicadores)
+    df = indicadores.copy() if indicadores is not None else calcular_indicadores(velas, p.indicadores)
     dif = df["ema_rapida"] - df["ema_lenta"]
     dif_prev = dif.shift(1)
     cruce = np.where((dif_prev <= 0) & (dif > 0), LARGO, np.where((dif_prev >= 0) & (dif < 0), CORTO, NINGUNA))
@@ -118,7 +123,7 @@ def generar_senales(velas: pd.DataFrame, p: ParametrosSenal, temporalidad: str =
     )
 
     motivos = np.full(len(df), "", dtype=object)
-    for i in np.flatnonzero(cruce != NINGUNA):
+    for i in (np.flatnonzero(cruce != NINGUNA) if con_motivos else []):
         motivos[i] = _motivo(df.iloc[i], bool(valido.iloc[i]), p)
     df["motivo"] = motivos
     return df

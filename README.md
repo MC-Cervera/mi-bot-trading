@@ -3,7 +3,7 @@
 Bot de trading de criptomonedas en Python: análisis técnico (EMA, volumen, RSI) + noticias + Claude como asesor,
 con una capa de riesgo en código que tiene la última palabra. **Prioridad n.º 1: proteger el capital.**
 
-> Estado: **Fase 2 de 8** completada (indicadores y señales técnicas).
+> Estado: **Fase 3 de 8** completada (backtesting walk-forward de la estrategia técnica sola).
 > El README completo llegará en la Fase 8.
 
 ## Decisiones acordadas
@@ -45,6 +45,7 @@ copy .env.example .env            # y rellena las claves (opcional en Fase 1)
 python scripts/verificar_conexion.py     # comprueba configuración, datos públicos y (si hay claves) saldo y permisos
 python scripts/descargar_historico.py    # descarga ~2 años de velas 1h de los 15 pares a data/bot.db
 python scripts/escanear_senales.py --ultimas 2   # cuántas señales da la estrategia por par y por qué
+python scripts/backtest.py               # backtest walk-forward (~1-3 min); informe en reportes/
 python -m pytest                          # pruebas
 ```
 
@@ -67,6 +68,20 @@ Los cruces que no cumplen todo se guardan como **descartados** con su motivo: so
 Los indicadores están implementados a mano (sin pandas-ta) y validados contra los ejemplos de referencia de
 StockCharts. Hay pruebas que demuestran que ni indicadores ni señales usan datos del futuro.
 
+## Backtesting (Fase 3)
+
+`python scripts/backtest.py` genera en `reportes/` un informe en español (`backtest_FECHA.md`), las operaciones en CSV
+y las curvas de capital en CSV. Compara, **solo en meses que el optimizador no vio**:
+estrategia optimizada (walk-forward) vs. parámetros por defecto vs. comprar y mantener (15 pares y solo BTC).
+
+- **Walk-forward:** 6 meses de entrenamiento → 2 meses de prueba → avanzar 2 meses. En entrenamiento se elige la mejor de
+  81 combinaciones (dentro de tus rangos) exigiendo al menos 30 operaciones; se evalúa en los 2 meses siguientes.
+- **Supuestos conservadores:** entrada en la vela siguiente a la señal; comisión 0.05% por lado; deslizamiento 0.05%;
+  funding siempre como costo; si una vela toca stop y objetivo, se asume el stop; huecos se ejecutan a la apertura.
+- **Reglas de riesgo incluidas:** 8 USD por operación (o 1% si la cuenta baja de 800), 3 posiciones, nocional ≤ capital/3,
+  pausa diaria al −3%, parada definitiva al −15% desde el máximo (se mantiene entre ventanas), cierre a las 23:00 UTC.
+- `--rapido` usa una rejilla reducida; `--pares BTC/USDT ETH/USDT` limita los pares.
+
 ### Claves de Binance Demo Trading (opcional en Fase 1)
 
 1. Entra en https://demo.binance.com → API Management → crea una clave.
@@ -82,6 +97,8 @@ bot/datos/exchange.py   clientes ccxt (datos públicos y cuenta demo), saldo, pe
 bot/datos/historico.py  descarga paginada, velas cerradas únicamente, huecos, upsert en SQLite
 bot/indicadores.py      EMA, RSI de Wilder, volumen relativo, ATR
 bot/senales.py          reglas de señal, motivos de descarte, explicación para el diario
+bot/dimensionamiento.py tamaño de posición para que el stop cueste lo planificado
+bot/backtest/           motor vela a vela, métricas, comprar y mantener, walk-forward, informe
 bot/db/                 modelos SQLAlchemy (velas, señales) y sesión
 scripts/                comandos de línea
 tests/                  pruebas pytest

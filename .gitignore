@@ -11,3 +11,7 @@ __pycache__/
 data/*.db
 data/*.db-journal
 logs/*.log*
+
+# Informes generados
+reportes/*.md
+reportes/*.csv
