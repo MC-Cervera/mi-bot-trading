@@ -39,7 +39,7 @@ pip install -r requirements.txt
 copy .env.example .env            # y rellena las claves (opcional en Fase 1)
 ```
 
-## Uso (Fase 1)
+## Uso
 
 ```powershell
 python scripts/verificar_conexion.py     # comprueba configuración, datos públicos y (si hay claves) saldo y permisos
@@ -47,6 +47,8 @@ python scripts/descargar_historico.py    # descarga ~2 años de velas 1h de los 
 python scripts/escanear_senales.py --ultimas 2   # cuántas señales da la estrategia por par y por qué
 python -m pytest                          # pruebas
 ```
+
+La descarga es incremental: al volver a ejecutarla solo baja las velas nuevas. No necesita claves.
 
 ## Estrategia técnica (Fase 2)
 
@@ -64,8 +66,6 @@ Se evalúa al **cierre** de cada vela de 1h; la entrada sería en la apertura de
 Los cruces que no cumplen todo se guardan como **descartados** con su motivo: son el grupo de control del aprendizaje.
 Los indicadores están implementados a mano (sin pandas-ta) y validados contra los ejemplos de referencia de
 StockCharts. Hay pruebas que demuestran que ni indicadores ni señales usan datos del futuro.
-
-La descarga es incremental: al volver a ejecutarla solo baja las velas nuevas. No necesita claves.
 
 ### Claves de Binance Demo Trading (opcional en Fase 1)
 
