@@ -1,7 +1,6 @@
 """Prueba de punta a punta del ciclo con mercado y Claude simulados: dos carteras, mismas señales."""
 import numpy as np
 import pandas as pd
-import pytest
 
 from bot.cartera import CARTERA_CLAUDE, CARTERA_SOLO, GestorCartera
 from bot.ciclo import Ciclo

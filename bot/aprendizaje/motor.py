@@ -232,7 +232,7 @@ class MotorAprendizaje:
                 alt = muestras_simuladas(self._senales(cfg), self._pb(), inicio, corte)
                 if len(alt) >= 30 and alt["r_multiple"].mean() - r_actual >= DIFERENCIA_EXPLORACION:
                     mejoras.append((alt["r_multiple"].mean() - r_actual, nombre, valor, len(alt), alt["r_multiple"].mean()))
-        for diff, nombre, valor, n, r in sorted(mejoras, reverse=True)[:max_parametros]:
+        for _diff, nombre, valor, n, r in sorted(mejoras, reverse=True)[:max_parametros]:
             actual = getattr(config.estrategia, nombre).valor
             h = self.crear_hipotesis(
                 origen="estadistico", tipo="parametro", efecto="mejor", parametro=nombre, valor=valor,
@@ -377,7 +377,7 @@ class MotorAprendizaje:
         for h in self.proponer_estadisticas():
             informe.nuevas.append(f"{h.codigo} [estadístico] {h.enunciado}")
         if revisor is not None:
-            for h, texto in revisor.revisar(self):
+            for h, _texto in revisor.revisar(self):
                 if h is not None:
                     informe.nuevas.append(f"{h.codigo} [Claude] {h.enunciado}")
             informe.comentario_claude = revisor.ultimo_comentario

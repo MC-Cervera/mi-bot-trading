@@ -10,7 +10,7 @@ from bot.aprendizaje.condiciones import Condicion, a_json, desde_json, describir
 from bot.aprendizaje.estadistica import comparar
 from bot.aprendizaje.motor import InformeSemanal, MotorAprendizaje, ProveedorLecciones
 from bot.aprendizaje.revision_claude import HipotesisPropuesta, RevisionSemanal, RevisorClaude, ComentarioExistente
-from bot.db.modelos import AjusteParametro, HistorialAprendizaje, Hipotesis, Leccion
+from bot.db.modelos import AjusteParametro, HistorialAprendizaje, Leccion
 from bot.ia.cliente import ClienteClaude
 from tests.claude_falso import ClienteFalso, respuesta
 

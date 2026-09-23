@@ -1,5 +1,4 @@
 """Cada regla de riesgo tiene al menos una prueba que demuestra que BLOQUEA una operación indebida."""
-import dataclasses
 
 import pandas as pd
 import pytest

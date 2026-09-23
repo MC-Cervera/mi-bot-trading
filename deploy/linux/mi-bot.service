@@ -1,0 +1,19 @@
+# Servicio systemd del bot (paper trading). Lo instala deploy/linux/instalar.sh.
+[Unit]
+Description=Mi bot de trading (paper trading)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USUARIO__
+WorkingDirectory=__RUTA__
+ExecStart=__RUTA__/.venv/bin/python scripts/bot.py
+Restart=on-failure
+RestartSec=30
+# 3 = detenido por emergencia: no se reinicia solo (hay que revisar y usar scripts/reactivar.py)
+RestartPreventExitStatus=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

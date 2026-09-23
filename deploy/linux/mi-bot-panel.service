@@ -1,0 +1,15 @@
+# Panel web: SOLO en 127.0.0.1. Se accede con un túnel SSH (ver README).
+[Unit]
+Description=Panel del bot de trading
+After=network-online.target
+
+[Service]
+Type=simple
+User=__USUARIO__
+WorkingDirectory=__RUTA__
+ExecStart=__RUTA__/.venv/bin/streamlit run panel/app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true --browser.gatherUsageStats false
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

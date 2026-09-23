@@ -42,7 +42,7 @@ def poblar(s):
             confianza_claude=0.7 if c == CARTERA_CLAUDE else None, llamada_claude_id=1 if c == CARTERA_CLAUDE else None,
             reglas_que_permitieron='["R1: bot activo"]', diario_entrada="### Entrada", diario_salida="### Salida",
             analisis_post="### Análisis"))
-    for i, h in enumerate(range(48)):
+    for h in range(48):
         for c, base in ((CARTERA_CLAUDE, 1000), (CARTERA_SOLO, 1000)):
             s.add(PuntoCapital(cartera=c, ts_ms=ms(AHORA - pd.Timedelta(hours=48 - h)), capital=base + (h % 7) - 3,
                                realizado=0, posiciones_abiertas=0))

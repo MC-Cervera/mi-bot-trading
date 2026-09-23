@@ -1,9 +1,7 @@
 import json
 
-import pandas as pd
 import pytest
 
-from bot.config import cargar_config
 from bot.db.modelos import LlamadaClaude, Noticia, Vela
 from bot.ia.cliente import ClienteClaude
 from bot.noticias.analisis import AnalisisNoticia, LoteAnalisis, analizar_pendientes, guardar_nuevas, noticias_recientes

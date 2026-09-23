@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from bot.dimensionamiento import calcular_tamano, riesgo_permitido_usd
-from bot.senales import CORTO, LARGO, NINGUNA
+from bot.senales import LARGO, NINGUNA
 
 HORAS_FUNDING = (0, 8, 16)
 

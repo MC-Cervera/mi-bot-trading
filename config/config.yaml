@@ -72,7 +72,7 @@ backtest:
   comision_pct: 0.05        # por lado (entrada y salida), taker de futuros USDⓈ-M en nivel VIP 0
   slippage_pct: 0.05        # deslizamiento en órdenes a mercado y stops
   funding_pct_8h: 0.01      # se cobra SIEMPRE como costo (supuesto conservador) a las 00, 08 y 16 UTC
-  nocional_min_usd: 5       # posición mínima; el mínimo real por par se leerá del exchange en la Fase 5
+  nocional_min_usd: 5       # posición mínima simulada; el mínimo real de Binance varía por par (se valida al pasar a real)
   walk_forward:
     entrenamiento_meses: 6
     prueba_meses: 2
