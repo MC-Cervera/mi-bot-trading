@@ -88,11 +88,19 @@ backtest:
 #   tecnico_claude: señal técnica -> Claude -> capa de riesgo -> orden
 #   tecnico_solo:   señal técnica ---------> capa de riesgo -> orden   (grupo de control para medir si Claude aporta)
 ejecucion:
-  broker: simulado              # simulado (recomendado) | binance_demo (envía órdenes reales a demo.binance.com)
+  broker: simulado              # simulado (recomendado) | binance_demo | exness_demo (MetaTrader 5, solo Windows)
   distancia_stop_min_pct: 0.2   # stops más cercanos que esto se bloquean (el ruido los saltaría y el tamaño sería enorme)
   distancia_stop_max_pct: 10.0  # stops más lejanos que esto se bloquean
   minuto_ciclo: 1               # el ciclo principal corre cada hora en el minuto 1 (vela recién cerrada)
   segundos_monitor: 60          # cada cuánto se revisan stop loss / take profit con el precio actual
+
+# Exness vía MetaTrader 5 (solo si ejecucion.broker = exness_demo). Credenciales en .env (EXNESS_*).
+# Las señales se siguen calculando con datos de Binance; Exness solo ejecuta. Solo cuentas DEMO.
+exness:
+  sufijo_simbolo: ""            # si tus símbolos se llaman p. ej. BTCUSDm, pon "m"
+  simbolos: {}                  # mapeo manual opcional: {"BTC/USDT": "BTCUSD"}
+  magico: 20260923
+  desviacion_puntos: 20
 
 claude:
   modelo: claude-sonnet-5

@@ -26,6 +26,7 @@ y el bot **aprende** de sus resultados solo cuando hay evidencia estadística.
 9. [Aprendizaje](#aprendizaje)
 10. [Panel web](#panel-web)
 11. [Servidor VPS](#servidor-vps)
+    - [Exness (MetaTrader 5)](#exness-metatrader-5)
 12. [Paso a dinero real](#paso-a-dinero-real)
 13. [Costos](#costos)
 14. [Limitaciones honestas](#limitaciones-honestas)
@@ -133,6 +134,7 @@ replantearla antes de invertir tiempo y dinero en lo demás.**
 | `python scripts/informe_final.py` | **Informe comparativo:** técnico solo vs. técnico + Claude vs. comprar y mantener |
 | `python scripts/checklist_real.py` | Checklist obligatorio antes de pensar en dinero real |
 | `python scripts/escanear_senales.py --ultimas 2` | Señales que da la estrategia por par y por qué se descartan |
+| `python scripts/probar_exness.py` | Valida la cuenta demo de Exness (MT5) y qué pares caben en tus reglas |
 | `python scripts/datos_demo.py` | Crea `data/demo.db` con datos **simulados** para conocer el panel |
 
 ---
@@ -289,6 +291,35 @@ bash deploy/linux/instalar.sh           # instala y arranca los servicios mi-bot
 
 La base de datos se respalda cada día en `data/respaldos/` (se guardan las últimas 14 copias).
 
+### Exness (MetaTrader 5)
+
+La cartera con Claude puede ejecutar sus órdenes en una **cuenta demo de Exness** en lugar de simularlas. Las
+señales se siguen calculando con datos de Binance; Exness solo ejecuta (CFDs de cripto). **Solo funciona en Windows**,
+porque la librería `MetaTrader5` no existe para Linux; en un VPS hace falta que sea Windows. **El broker está
+probado con un MetaTrader simulado, no contra Exness real**, así que primero valídalo tú.
+
+1. Abre una **cuenta demo** en Exness con un saldo parecido al capital simulado (1000 USD) e instala MetaTrader 5.
+   Déjalo abierto con esa cuenta.
+2. `pip install MetaTrader5` y rellena en `.env` `EXNESS_LOGIN`, `EXNESS_PASSWORD` y `EXNESS_SERVIDOR`
+   (y `EXNESS_TERMINAL` si MT5 no está en la ruta por defecto).
+3. `python scripts/probar_exness.py`: comprueba que la cuenta es **demo** (si no, se niega a operar), qué pares
+   existen y si el **lote mínimo** de cada uno cabe en tus reglas de riesgo.
+4. `python scripts/probar_exness.py --orden ETH/USDT`: abre y cierra una posición mínima y verifica que el stop y
+   el objetivo quedan en el servidor.
+5. Si todo sale OK: `ejecucion: broker: exness_demo` en `config/config.yaml`. Si tus símbolos tienen sufijo (por
+   ejemplo `BTCUSDm`), pon `exness: sufijo_simbolo: "m"`, o mapea cada par a mano en `exness.simbolos`.
+
+Cómo funciona:
+- El stop y el objetivo viajan con la orden y los ejecuta el servidor de Exness, aunque el bot se caiga.
+- El volumen se redondea **hacia abajo** al paso de lote: nunca se arriesga más de lo planificado.
+- Cada orden lleva un número mágico y un comentario único, así que no se duplica si hay un reintento.
+- Se registran la comisión y el swap reales, sin simular funding encima.
+
+⚠️ **Lote mínimo:** con 1000 USD de capital, apalancamiento 1x y 3 posiciones, cada posición puede valer como
+máximo unos 333 USD. Si el lote mínimo de un par vale más que eso (por ejemplo, 0.01 BTC ≈ 600 USD), ese par
+**no se puede operar** sin romper tus reglas. El bot lo bloquea y lo registra con el motivo, y `probar_exness.py`
+te dice qué pares quedan disponibles.
+
 ---
 
 ## Paso a dinero real
@@ -344,7 +375,9 @@ Demo, que antes debes validar con `scripts/probar_orden_demo.py`), empezar con e
 - Claude no se puede evaluar en backtest: conoce el pasado, así que el resultado estaría contaminado. Por eso se
   compara solo en paper trading y en paralelo con la cartera de control.
 - El broker de **Binance Demo es experimental**; por defecto las órdenes se simulan dentro del bot.
-- **Bitso y Exness no están implementados.** Exness requiere MetaTrader 5, que solo funciona en Windows. FXIFY y FTMO quedaron fuera.
+- **Exness está implementado pero es experimental:** se probó con un MetaTrader 5 simulado y debes validarlo con
+  `scripts/probar_exness.py` en una cuenta demo. Algunos pares pueden quedar fuera por el lote mínimo.
+- **Bitso no está implementado.** FXIFY y FTMO quedaron fuera.
 - Todo el desarrollo se probó con datos simulados, porque el entorno de desarrollo no tenía acceso a Binance ni a
   Anthropic. La primera ejecución real es en tu equipo.
 
@@ -381,7 +414,7 @@ bot/riesgo.py             capa de riesgo (R1–R10)
 bot/dimensionamiento.py   tamaño de posición a partir del stop
 bot/cartera.py            carteras: aperturas, cierres, stops, límites, emergencia, curva de capital
 bot/ciclo.py              ciclo del bot (horario, monitor, noticias)
-bot/ejecucion/            broker simulado y Binance Demo (experimental)
+bot/ejecucion/            brokers: simulado, Binance Demo y Exness MT5 (experimentales)
 bot/aprendizaje/          hipótesis, estadística, lecciones, ajustes reversibles, revisión con Claude
 bot/diario.py             diario de trading y análisis posterior
 bot/informe_final.py      informe comparativo final

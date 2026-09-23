@@ -28,6 +28,10 @@ def construir(con_mercado: bool = True):
     if config.ejecucion.broker == "binance_demo":
         from bot.ejecucion.binance_demo import BrokerBinanceDemo
         broker_claude = BrokerBinanceDemo(crear_cliente_cuenta(config, secretos), config.exchange.tipo_mercado)
+    elif config.ejecucion.broker == "exness_demo":
+        from bot.ejecucion.exness_mt5 import BrokerExness, conectar
+        e = config.exness
+        broker_claude = BrokerExness(conectar(secretos), e.sufijo_simbolo, e.simbolos, e.magico, e.desviacion_puntos)
     # La cartera de control siempre es simulada: así la comparación usa exactamente los mismos supuestos.
     carteras = {
         CARTERA_CLAUDE: GestorCartera(sesion, config, CARTERA_CLAUDE, broker_claude, avisos),

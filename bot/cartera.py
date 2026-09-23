@@ -220,6 +220,8 @@ class GestorCartera:
 
     def cobrar_funding(self, precios: dict[str, float], ahora: pd.Timestamp) -> None:
         """Funding de futuros cobrado siempre como costo (supuesto conservador) a las 00, 08 y 16 UTC."""
+        if getattr(self.broker, "costos_reales", False):
+            return  # el broker ya registra los costos reales (p. ej. el swap de Exness)
         for op in self.abiertas():
             for h in HORAS_FUNDING:
                 t = ms(ahora.normalize() + pd.Timedelta(hours=h))

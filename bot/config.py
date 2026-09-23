@@ -115,11 +115,18 @@ class ConfigBacktest(BaseModel):
 
 
 class ConfigEjecucion(BaseModel):
-    broker: Literal["simulado", "binance_demo"] = "simulado"
+    broker: Literal["simulado", "binance_demo", "exness_demo"] = "simulado"
     distancia_stop_min_pct: float = Field(default=0.2, gt=0)
     distancia_stop_max_pct: float = Field(default=10.0, gt=0)
     minuto_ciclo: int = Field(default=1, ge=0, le=59)
     segundos_monitor: int = Field(default=60, ge=10)
+
+
+class ConfigExness(BaseModel):
+    sufijo_simbolo: str = ""                 # algunas cuentas usan sufijos, p. ej. "m" (BTCUSDm)
+    simbolos: dict[str, str] = Field(default_factory=dict)  # mapeo manual opcional, p. ej. {"BTC/USDT": "BTCUSD"}
+    magico: int = 20260923                   # identifica las órdenes del bot en MT5
+    desviacion_puntos: int = Field(default=20, ge=0)
 
 
 class PreciosClaude(BaseModel):
@@ -170,6 +177,7 @@ class Config(BaseModel):
     senales: ConfigSenales
     backtest: ConfigBacktest
     ejecucion: ConfigEjecucion
+    exness: ConfigExness = Field(default_factory=ConfigExness)
     claude: ConfigClaude
     noticias: ConfigNoticias
     telegram: ConfigTelegram
@@ -223,6 +231,10 @@ class Secretos(BaseModel):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     modo_real_autorizado: str = ""
+    exness_login: str = ""
+    exness_password: str = ""
+    exness_servidor: str = ""
+    exness_terminal: str = ""
 
     @property
     def tiene_claves_exchange(self) -> bool:
@@ -238,6 +250,10 @@ def cargar_secretos(ruta_env: Path | None = None) -> Secretos:
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
         telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
         modo_real_autorizado=os.getenv("MODO_REAL_AUTORIZADO", ""),
+        exness_login=os.getenv("EXNESS_LOGIN", ""),
+        exness_password=os.getenv("EXNESS_PASSWORD", ""),
+        exness_servidor=os.getenv("EXNESS_SERVIDOR", ""),
+        exness_terminal=os.getenv("EXNESS_TERMINAL", ""),
     )
 
 
