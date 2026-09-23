@@ -114,13 +114,27 @@ class ConfigBacktest(BaseModel):
     walk_forward: ConfigWalkForward
 
 
+class PreciosClaude(BaseModel):
+    entrada: float = Field(ge=0)
+    salida: float = Field(ge=0)
+    cache_lectura: float = Field(ge=0)
+    cache_escritura: float = Field(ge=0)
+
+
 class ConfigClaude(BaseModel):
     modelo: str
     presupuesto_mensual_usd: float = Field(ge=0)
+    esfuerzo_decision: Literal["low", "medium", "high"] = "medium"
+    esfuerzo_noticias: Literal["low", "medium", "high"] = "low"
+    max_noticias_por_llamada: int = Field(default=15, ge=1, le=50)
+    precios_usd_por_millon: PreciosClaude
 
 
 class ConfigNoticias(BaseModel):
     fuentes_rss: list[str]
+    intervalo_minutos: int = Field(default=30, ge=5)
+    horas_contexto: int = Field(default=24, ge=1)
+    min_muestras_estadistica: int = Field(default=5, ge=1)
 
 
 class ConfigTelegram(BaseModel):

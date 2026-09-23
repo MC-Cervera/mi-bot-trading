@@ -86,13 +86,21 @@ backtest:
 
 claude:
   modelo: claude-sonnet-5
-  presupuesto_mensual_usd: 15   # al alcanzarlo el bot deja de llamar a Claude y opera en modo conservador (no abre)
+  presupuesto_mensual_usd: 15   # al alcanzarlo el bot deja de llamar a Claude y NO abre operaciones
+  esfuerzo_decision: medium     # low | medium | high: más esfuerzo = mejor razonamiento pero más costo
+  esfuerzo_noticias: low
+  max_noticias_por_llamada: 15
+  # Precios en USD por millón de tokens (verifícalos en https://www.anthropic.com/pricing si cambian).
+  precios_usd_por_millon: {entrada: 2.0, salida: 10.0, cache_lectura: 0.2, cache_escritura: 2.5}
 
 noticias:
   fuentes_rss:
     - https://www.coindesk.com/arc/outboundfeeds/rss/
     - https://cointelegraph.com/rss
     - https://decrypt.co/feed
+  intervalo_minutos: 30         # cada cuánto se revisan las fuentes
+  horas_contexto: 24            # noticias de las últimas N horas que ve Claude al decidir
+  min_muestras_estadistica: 5   # mínimo de noticias parecidas para citar su impacto histórico
 
 telegram:
   habilitado: false
