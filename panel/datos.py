@@ -126,6 +126,29 @@ def resumen_carteras(s: Session, precios: dict[str, float] | None = None) -> lis
     return salida
 
 
+def posiciones_abiertas(s: Session, precios: dict[str, float] | None = None,
+                        ahora: pd.Timestamp | None = None) -> pd.DataFrame:
+    """Posiciones abiertas ahora, valoradas con el último precio guardado. Resultado sin la comisión de salida."""
+    precios = precios if precios is not None else ultimos_precios(s)
+    ahora = ahora if ahora is not None else pd.Timestamp.now(tz="UTC")
+    filas = []
+    for o in s.scalars(select(Operacion).where(Operacion.estado == "abierta").order_by(Operacion.ts_entrada_ms)):
+        d = 1 if o.direccion == "largo" else -1
+        p = precios.get(o.par, o.precio_entrada)
+        resultado = (p - o.precio_entrada) * o.cantidad * d - (o.funding or 0)
+        entrada = fecha(o.ts_entrada_ms)
+        filas.append({
+            "id": o.id, "cartera": NOMBRE_CARTERA.get(o.cartera, o.cartera), "par": o.par, "direccion": o.direccion,
+            "entrada_fecha": entrada, "horas_abierta": (ahora - entrada).total_seconds() / 3600,
+            "precio_entrada": o.precio_entrada, "precio_actual": p, "stop_loss": o.stop_loss,
+            "take_profit": o.take_profit, "resultado_usd": resultado,
+            "resultado_r": resultado / o.riesgo_usd if o.riesgo_usd else None,
+            "dist_sl_pct": abs(p - o.stop_loss) / p * 100, "dist_tp_pct": abs(o.take_profit - p) / p * 100,
+            "nocional": o.nocional,
+        })
+    return pd.DataFrame(filas)
+
+
 def eventos(s: Session, limite: int = 50, tipo: str | None = None) -> pd.DataFrame:
     q = select(EventoRiesgo).order_by(EventoRiesgo.id.desc()).limit(limite)
     if tipo:

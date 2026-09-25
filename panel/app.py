@@ -127,6 +127,33 @@ def control_bot(en_barra: bool = False) -> None:
                 st.code("\n".join(lineas) or "(vacío)")
 
 
+def tabla_posiciones_abiertas(s) -> None:
+    st.subheader("📂 Posiciones abiertas ahora")
+    pos = datos.posiciones_abiertas(s)
+    if pos.empty:
+        st.info("No hay posiciones abiertas en este momento.")
+        return
+    orden = ["cartera", "par", "direccion", "resultado_usd", "resultado_r", "precio_actual", "stop_loss", "take_profit",
+             "dist_sl_pct", "dist_tp_pct", "entrada_fecha", "horas_abierta", "precio_entrada", "nocional"]
+    st.dataframe(pos[orden], hide_index=True, width="stretch", column_config={
+        "cartera": "Cartera", "par": "Par", "direccion": "Dirección",
+        "entrada_fecha": st.column_config.DatetimeColumn("Entrada (UTC)", format="DD/MM HH:mm"),
+        "horas_abierta": st.column_config.NumberColumn("Horas abierta", format="%.1f"),
+        "precio_entrada": st.column_config.NumberColumn("Precio entrada", format="%.4f"),
+        "precio_actual": st.column_config.NumberColumn("Precio actual", format="%.4f"),
+        "stop_loss": st.column_config.NumberColumn("Stop loss", format="%.4f"),
+        "take_profit": st.column_config.NumberColumn("Take profit", format="%.4f"),
+        "resultado_usd": st.column_config.NumberColumn("Resultado (USD)", format="%+.2f"),
+        "resultado_r": st.column_config.NumberColumn("Resultado (R)", format="%+.2f",
+                                                     help="1 R = lo que se pierde si salta el stop loss (8 USD)"),
+        "dist_sl_pct": st.column_config.NumberColumn("Distancia al SL", format="%.2f %%"),
+        "dist_tp_pct": st.column_config.NumberColumn("Distancia al TP", format="%.2f %%"),
+        "nocional": st.column_config.NumberColumn("Tamaño (USD)", format="%.2f"),
+    })
+    ayuda("Resultado **sin realizar**: cambia con el precio y aún no descuenta la comisión de salida. El detalle "
+          "completo de cada una (por qué se abrió, qué dijo Claude) está en **Detalle**. Todas se cierran a las 23:00 UTC.")
+
+
 def seccion_resumen(s) -> None:
     st.header("Resumen")
     st.subheader("🤖 Estado del bot")
@@ -155,6 +182,7 @@ def seccion_resumen(s) -> None:
     ayuda("Hay dos carteras simuladas de 1000 USD que reciben **las mismas señales**. Una pasa cada señal por Claude "
           "antes de operar; la otra opera la señal técnica tal cual. Comparándolas se sabe si Claude mejora los "
           "resultados o solo cuesta dinero.")
+    tabla_posiciones_abiertas(s)
 
     st.subheader("🚨 Botón de emergencia")
     st.write("Cierra **todas** las posiciones de las dos carteras y detiene el bot hasta que lo reactives a mano.")

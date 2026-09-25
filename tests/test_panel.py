@@ -81,6 +81,15 @@ def test_resumen_carteras(s):
     assert r[CARTERA_SOLO]["capital"] == pytest.approx(996)
 
 
+def test_posiciones_abiertas(s):
+    pos = datos.posiciones_abiertas(s, ahora=AHORA)
+    assert len(pos) == 1
+    p = pos.iloc[0]
+    assert p["precio_actual"] == 102 and p["resultado_usd"] == pytest.approx(4)  # (102 - 100) x 2
+    assert p["resultado_r"] == pytest.approx(0.5) and p["horas_abierta"] == pytest.approx(3)
+    assert p["dist_sl_pct"] == pytest.approx(6 / 102 * 100) and p["dist_tp_pct"] == pytest.approx(6 / 102 * 100)
+
+
 def test_resultados_por_periodo_y_metricas(s):
     ops = datos.operaciones(s)
     for p in "DWMY":
