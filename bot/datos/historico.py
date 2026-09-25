@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 
 COLUMNAS = ["ts", "open", "high", "low", "close", "volume"]
 MAX_REINTENTOS = 3
+TRAMO_MS = 60 * 86_400_000  # se guarda cada 60 días descargados
 
 
 def ms_temporalidad(temporalidad: str) -> int:
@@ -138,7 +139,7 @@ class ResultadoActualizacion:
 
 def actualizar_historico(
     sesion: Session, cliente, exchange: str, par: str, temporalidad: str, tipo_mercado: str, dias: int,
-    ahora: int | None = None,
+    ahora: int | None = None, progreso=None,
 ) -> ResultadoActualizacion:
     """Descarga solo lo que falta desde la última vela guardada (o `dias` hacia atrás si no hay nada)."""
     ahora = ahora if ahora is not None else ahora_ms()
@@ -146,8 +147,17 @@ def actualizar_historico(
     ultimo = ultimo_ts(sesion, exchange, par, temporalidad)
     desde = ultimo + tf if ultimo is not None else ahora - dias * 86_400_000
     desde -= desde % tf  # alinear al inicio de vela
-    df = descargar_velas(cliente, simbolo_mercado(par, tipo_mercado), temporalidad, desde, ahora=ahora)
-    guardadas = guardar_velas(sesion, df, exchange, par, temporalidad)
+    # se descarga y GUARDA por tramos: si algo falla a mitad, lo ya descargado queda en la base de datos y la
+    # próxima ejecución continúa desde la última vela guardada
+    guardadas = 0
+    cursor = desde
+    while cursor < ahora:
+        hasta = min(cursor + TRAMO_MS, ahora)
+        df = descargar_velas(cliente, simbolo_mercado(par, tipo_mercado), temporalidad, cursor, hasta_ms=hasta, ahora=ahora)
+        guardadas += guardar_velas(sesion, df, exchange, par, temporalidad)
+        if progreso:
+            progreso(par, hasta, ahora)
+        cursor = hasta
     huecos = detectar_huecos(cargar_velas(sesion, exchange, par, temporalidad), temporalidad)
     if huecos:
         log.warning("%s: %d hueco(s) en el histórico (ej. %s)", par, len(huecos), huecos[0])

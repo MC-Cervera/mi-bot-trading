@@ -32,9 +32,9 @@ def main() -> int:
 
     datos = crear_cliente_datos(config)
     try:
-        validos, invalidos = validar_pares(datos, config.pares, config.exchange.tipo_mercado)
+        validos, invalidos = validar_pares(datos, config.pares, config.exchange.mercado_datos)
         print(f"[OK] Datos públicos: {len(validos)} pares disponibles" + (f", NO disponibles: {invalidos}" if invalidos else ""))
-        ticker = datos.fetch_ticker(simbolo_mercado(validos[0], config.exchange.tipo_mercado))
+        ticker = datos.fetch_ticker(simbolo_mercado(validos[0], config.exchange.mercado_datos))
         print(f"     Último precio {validos[0]}: {ticker['last']}")
     except Exception as e:  # noqa: BLE001
         print(f"[ERROR] No se pudo conectar a los datos públicos: {type(e).__name__}: {e}")

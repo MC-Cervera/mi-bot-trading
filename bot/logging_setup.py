@@ -8,6 +8,17 @@ from pathlib import Path
 FORMATO = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 
 
+class FormatoConsola(logging.Formatter):
+    """En pantalla solo el mensaje; el detalle técnico (traceback) va únicamente al archivo de log."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        copia = logging.makeLogRecord(record.__dict__)
+        copia.exc_info = None
+        copia.exc_text = None
+        copia.stack_info = None
+        return super().format(copia)
+
+
 def configurar_logging(ruta_log: Path, nivel: int = logging.INFO) -> None:
     ruta_log.parent.mkdir(parents=True, exist_ok=True)
     raiz = logging.getLogger()
@@ -21,7 +32,7 @@ def configurar_logging(ruta_log: Path, nivel: int = logging.INFO) -> None:
 
     consola = logging.StreamHandler()
     consola.setLevel(nivel)
-    consola.setFormatter(logging.Formatter("%(levelname)s | %(message)s"))
+    consola.setFormatter(FormatoConsola("%(levelname)s | %(message)s"))
 
     raiz.addHandler(archivo)
     raiz.addHandler(consola)

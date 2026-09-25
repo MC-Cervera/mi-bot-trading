@@ -19,13 +19,13 @@ class MercadoCcxt:
         self.s = sesion
         self.config = config
         self.cliente = cliente or crear_cliente_datos(config)
-        self._simbolos = {simbolo_mercado(p, config.exchange.tipo_mercado): p for p in config.pares}
+        self._simbolos = {simbolo_mercado(p, config.exchange.mercado_datos): p for p in config.pares}
 
     def actualizar(self, ahora: pd.Timestamp) -> None:
         for par in self.config.pares:
             try:
                 actualizar_historico(self.s, self.cliente, self.config.exchange.nombre, par, self.config.temporalidad,
-                                     self.config.exchange.tipo_mercado, dias=30)
+                                     self.config.exchange.mercado_datos, dias=30)
             except (ccxt.NetworkError, ccxt.ExchangeNotAvailable) as e:
                 # el exchange no responde: no tiene sentido esperar reintentos par por par; se vuelve a intentar
                 # en el próximo ciclo (las señales de pares sin la vela nueva se omiten solas)

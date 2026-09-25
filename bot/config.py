@@ -40,6 +40,11 @@ class ConfigExchange(BaseModel):
     nombre: Literal["binance"]
     tipo_mercado: Literal["spot", "future"]
     demo: bool = True
+    datos_spot: bool = False  # usar precios de spot para las velas si los futuros no responden en tu región
+
+    @property
+    def mercado_datos(self) -> str:
+        return "spot" if self.datos_spot else self.tipo_mercado
 
 
 class ConfigHistorico(BaseModel):

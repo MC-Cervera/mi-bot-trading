@@ -10,6 +10,9 @@ exchange:
   tipo_mercado: future
   # Las órdenes van a Binance Demo Trading; los datos históricos se leen del mercado real (públicos, sin claves).
   demo: true
+  # Si los datos de futuros no responden en tu región, pon true: las velas se leerán del mercado spot
+  # (precios casi idénticos). descargar_historico.py te lo indicará si hace falta.
+  datos_spot: false
 
 pares:
   - BTC/USDT

@@ -45,7 +45,8 @@ def main() -> int:
             continue
         velas[par] = df
     if not velas:
-        print("No hay datos. Ejecuta primero: python scripts/descargar_historico.py")
+        print(f"No hay velas en la base de datos {config.rutas.absoluta(config.rutas.base_datos)}.\n"
+              "Ejecuta primero: python scripts/descargar_historico.py  (y revisa que termine sin [ERROR]).")
         return 1
 
     wf = config.backtest.walk_forward
