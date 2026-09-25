@@ -1,0 +1,9 @@
+# Configuración del panel (Streamlit la lee al ejecutar `streamlit run panel/app.py` desde la carpeta del bot).
+[server]
+# No pregunta el correo al arrancar por primera vez ni abre el navegador solo: abre http://localhost:8501
+headless = true
+address = "127.0.0.1"
+port = 8501
+
+[browser]
+gatherUsageStats = false
