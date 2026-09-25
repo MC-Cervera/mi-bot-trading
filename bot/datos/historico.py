@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from bot.datos.exchange import simbolo_mercado
 from bot.db.modelos import Vela
+from bot.db.sesion import filas_por_bloque
 
 log = logging.getLogger(__name__)
 
@@ -96,8 +97,9 @@ def guardar_velas(sesion: Session, df: pd.DataFrame, exchange: str, par: str, te
         {"exchange": exchange, "par": par, "temporalidad": temporalidad, **{c: fila[c] for c in COLUMNAS}}
         for fila in df.to_dict("records")
     ]
-    for i in range(0, len(registros), 5000):
-        stmt = insert(Vela).values(registros[i : i + 5000])
+    bloque = filas_por_bloque(len(registros[0]))
+    for i in range(0, len(registros), bloque):
+        stmt = insert(Vela).values(registros[i : i + bloque])
         stmt = stmt.on_conflict_do_update(
             index_elements=["exchange", "par", "temporalidad", "ts"],
             set_={c: stmt.excluded[c] for c in ["open", "high", "low", "close", "volume"]},

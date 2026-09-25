@@ -8,6 +8,14 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from bot.db.modelos import Base
 
+# SQLite limita cuántos valores caben en una consulta: 32 766 en el SQLite que trae Python en Windows
+# (999 en versiones muy antiguas). Las inserciones masivas se parten en bloques que quepan con holgura.
+MAX_VARIABLES_SQLITE = 990  # seguro incluso con SQLite antiguos (límite 999)
+
+
+def filas_por_bloque(columnas: int) -> int:
+    return max(1, min(1000, MAX_VARIABLES_SQLITE // max(columnas, 1)))
+
 
 def crear_motor(ruta_db: Path | str) -> Engine:
     """`ruta_db` puede ser una ruta de archivo o ':memory:' (pruebas)."""

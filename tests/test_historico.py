@@ -149,3 +149,33 @@ def test_diagnostico_ssl():
     except ccxt.NetworkError as e:
         texto = diagnosticar(e)
     assert "antivirus" in texto and "Causa: SSLCertVerificationError" in texto
+
+
+def test_guardado_masivo_con_el_limite_de_sqlite_de_windows(tmp_path, exchange_falso):
+    """El SQLite de Python en Windows admite 32 766 valores por consulta (aquí 250 000). Se simula ese límite
+    —y el antiguo de 999— para garantizar que guardar años de velas y miles de señales funciona allí."""
+    import sqlite3
+
+    from sqlalchemy import event
+
+    from bot.db import crear_motor, crear_sesion
+    from bot.senales import ParametrosSenal, generar_senales, guardar_senales
+    from tests.test_indicadores import velas_aleatorias
+
+    for limite in (32_766, 999):
+        motor = crear_motor(tmp_path / f"win_{limite}.db")
+
+        @event.listens_for(motor, "connect")
+        def _limite(conexion, _, limite=limite):
+            conexion.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, limite)
+
+        motor.dispose()
+        s = crear_sesion(motor)
+        n = 24 * 730
+        df = descargar_velas(exchange_falso(INICIO, n, max_limite=1000), "X", "1h", INICIO, ahora=INICIO + n * H)
+        assert guardar_velas(s, df, "binance", "BTC/USDT", "1h") == n
+        assert len(cargar_velas(s, "binance", "BTC/USDT", "1h")) == n
+        velas = velas_aleatorias(24 * 400, semilla=4)
+        velas["volume"] *= 1 + 2 * (velas.index.hour % 3 == 0)
+        senales = generar_senales(velas, ParametrosSenal())
+        assert guardar_senales(s, senales, "binance", "BTC/USDT", ParametrosSenal()) > 100

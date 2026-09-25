@@ -29,6 +29,7 @@ from sqlalchemy.dialects.sqlite import insert
 from bot.config import Config
 from bot.datos.historico import ms_temporalidad
 from bot.db.modelos import Senal
+from bot.db.sesion import filas_por_bloque
 from bot.indicadores import ParametrosIndicadores, calcular_indicadores
 
 LARGO, CORTO, NINGUNA = 1, -1, 0
@@ -222,6 +223,8 @@ def guardar_senales(sesion, df_senales: pd.DataFrame, exchange: str, par: str, p
         for _, f in cruces.iterrows()
     ]
     if registros:
-        sesion.execute(insert(Senal).values(registros).on_conflict_do_nothing())
+        bloque = filas_por_bloque(len(registros[0]))
+        for i in range(0, len(registros), bloque):
+            sesion.execute(insert(Senal).values(registros[i: i + bloque]).on_conflict_do_nothing())
         sesion.commit()
     return len(registros)
