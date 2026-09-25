@@ -298,6 +298,9 @@ bash deploy/linux/instalar.sh           # instala y arranca los servicios mi-bot
 - La hora del servidor se sincroniza (NTP), porque el cierre diario depende de ella.
 
 **Windows (PC o VPS Windows):**
+- **Uso diario: doble clic en `INICIAR.bat`** (en la carpeta del bot). Arranca el bot si no estaba en marcha y abre el
+  panel en el navegador. Deja abierta su ventana mientras uses el panel; al cerrarla, el bot sigue funcionando.
+  Para tenerlo a mano: clic derecho en `INICIAR.bat` → *Enviar a* → *Escritorio (crear acceso directo)*.
 - `deploy\windows\iniciar_bot.bat` y `deploy\windows\iniciar_panel.bat` arrancan el bot y el panel.
 - Para que arranque solo: Programador de tareas → Crear tarea → Desencadenador *Al iniciar el sistema* → Acción:
   `iniciar_bot.bat` → Configuración: *Si la tarea no se ejecuta, reiniciar cada 1 minuto*.
