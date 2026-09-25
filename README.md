@@ -165,9 +165,23 @@ Los supuestos son conservadores:
 - comisión de 0.05% por lado y deslizamiento de 0.05%;
 - el funding de futuros siempre cuenta como costo;
 - si una vela toca el stop y el objetivo, se asume que saltó el stop;
-- los huecos de precio se ejecutan al precio de apertura.
+- los huecos de precio se ejecutan al precio de apertura;
+- las señales con el stop a menos de 0.2% o a más de 10% del precio no se operan (regla R8, igual que en vivo).
 
 El informe se compara con comprar y mantener.
+
+**Probar otras temporalidades (5m, 15m, 30m):** el bot en vivo usa 1 h. Antes de activar otra temporalidad, se
+comprueba en el backtest:
+
+```powershell
+python scripts/descargar_historico.py --temporalidad 5m 15m 30m 1h   # 5m tarda más y ocupa unos cientos de MB
+python scripts/backtest.py --temporalidad 5m 15m 30m 1h
+```
+
+Genera un informe por temporalidad y `reportes/backtest_comparacion_FECHA.md`, con todas en una tabla y un veredicto
+para cada una. En temporalidades cortas el stop queda cerca del precio: con 1x la posición no puede crecer lo
+suficiente para arriesgar 8 USD, pero las comisiones siguen igual. La tabla lo muestra en "Riesgo medio real por
+operación" y "Costos / ganancia bruta".
 
 ---
 

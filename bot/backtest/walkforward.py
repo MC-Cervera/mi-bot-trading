@@ -21,7 +21,8 @@ from dataclasses import dataclass
 import pandas as pd
 
 from bot.backtest.metricas import calcular_metricas, calidad_sistema
-from bot.backtest.motor import ParametrosBacktest, ResultadoBacktest, simular
+from bot.backtest.motor import ParametrosBacktest, ResultadoBacktest, SenalesAlineadas, alinear, simular
+from bot.datos.historico import ms_temporalidad
 from bot.indicadores import ParametrosIndicadores, calcular_indicadores
 from bot.senales import ParametrosSenal, generar_senales
 
@@ -66,28 +67,32 @@ class CacheSenales:
     Guardar las señales de TODAS las combinaciones ocuparía gigabytes, así que solo se retienen las últimas.
     """
 
-    def __init__(self, velas_por_par: dict[str, pd.DataFrame], temporalidad: str, max_senales: int = 4):
+    def __init__(self, velas_por_par: dict[str, pd.DataFrame], temporalidad: str, max_senales: int = 3,
+                 max_indicadores: int = 2):
         self.velas = velas_por_par
         self.temporalidad = temporalidad
         self.max_senales = max_senales
+        self.max_indicadores = max_indicadores  # (en 5m cada juego de indicadores ocupa cientos de MB)
         self._ind: dict[tuple, dict[str, pd.DataFrame]] = {}
-        self._sen: dict[ParametrosSenal, dict[str, pd.DataFrame]] = {}
+        self._sen: dict[ParametrosSenal, SenalesAlineadas] = {}
 
     def indicadores(self, p: ParametrosIndicadores) -> dict[str, pd.DataFrame]:
         clave = dataclasses.astuple(p)
         if clave not in self._ind:
+            if len(self._ind) >= self.max_indicadores:
+                self._ind.pop(next(iter(self._ind)))
             self._ind[clave] = {par: calcular_indicadores(df, p) for par, df in self.velas.items()}
         return self._ind[clave]
 
-    def senales(self, p: ParametrosSenal) -> dict[str, pd.DataFrame]:
+    def senales(self, p: ParametrosSenal) -> SenalesAlineadas:
         if p not in self._sen:
             if len(self._sen) >= self.max_senales:
                 self._sen.pop(next(iter(self._sen)))
             ind = self.indicadores(p.indicadores)
-            self._sen[p] = {
+            self._sen[p] = alinear({
                 par: generar_senales(df, p, self.temporalidad, indicadores=ind[par], con_motivos=False)
                 for par, df in self.velas.items()
-            }
+            })
         return self._sen[p]
 
 
@@ -110,7 +115,7 @@ def walk_forward(
     inicio = min(df.index[0] for df in velas_por_par.values())
     fin = max(df.index[-1] for df in velas_por_par.values())
     # margen de calentamiento: el entrenamiento empieza cuando los indicadores ya tienen valor
-    inicio += pd.Timedelta(hours=max(max(e) for e in config_wf.rejilla.ema) * 3)
+    inicio += pd.Timedelta(milliseconds=ms_temporalidad(temporalidad)) * max(max(e) for e in config_wf.rejilla.ema) * 3
     ventanas = generar_ventanas(inicio.normalize(), fin, config_wf.entrenamiento_meses, config_wf.prueba_meses)
     if not ventanas:
         return []

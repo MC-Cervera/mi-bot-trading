@@ -188,6 +188,17 @@ class Config(BaseModel):
     telegram: ConfigTelegram
     rutas: ConfigRutas
 
+    def ruta_velas(self, temporalidad: str) -> Path:
+        """Base de datos donde se guardan las velas de esa temporalidad.
+
+        La del bot (1h) va en la base principal. Las que solo se usan en el backtest (5m, 15m, 30m...) van en
+        archivos aparte (data/velas_5m.db...): ocupan cientos de MB y no deben entrar en los respaldos diarios.
+        """
+        principal = self.rutas.absoluta(self.rutas.base_datos)
+        if temporalidad == self.temporalidad:
+            return principal
+        return principal.parent / f"velas_{temporalidad}.db"
+
     @model_validator(mode="after")
     def _rejilla_dentro_de_rangos(self) -> "Config":
         """La optimización del backtest tampoco puede salirse de los rangos que definió el dueño."""

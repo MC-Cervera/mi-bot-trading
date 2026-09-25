@@ -1,7 +1,9 @@
 """Descarga/actualiza el histórico de velas de todos los pares configurados.
 
-Uso:  python scripts/descargar_historico.py [--dias 730] [--pares BTC/USDT ETH/USDT] [--spot]
+Uso:  python scripts/descargar_historico.py [--dias 730] [--pares BTC/USDT ETH/USDT] [--spot] [--temporalidad 5m 15m 30m 1h]
 No necesita claves: usa solo datos públicos. Guarda por tramos: si se corta, vuelve a ejecutarlo y continúa.
+--temporalidad  por defecto la de config.yaml (1h). Ej.: --temporalidad 5m 15m 30m 1h descarga las cuatro.
+                5m ocupa ~12 veces más que 1h (2 años x 15 pares ≈ 3 millones de velas, unos cientos de MB).
 --spot  usa los precios del mercado spot (casi idénticos a los de futuros) si los futuros no responden en tu región.
 """
 from __future__ import annotations
@@ -22,6 +24,7 @@ from bot.db import crear_motor, crear_sesion  # noqa: E402
 from bot.logging_setup import configurar_logging  # noqa: E402
 
 log = logging.getLogger("descargar_historico")
+TEMPORALIDADES = ["5m", "15m", "30m", "1h", "4h"]
 
 
 def conectar(config, tipo):
@@ -35,15 +38,14 @@ def main() -> int:
     ap.add_argument("--dias", type=int, help="días hacia atrás si el par no tiene histórico")
     ap.add_argument("--pares", nargs="*", help="subconjunto de pares (por defecto todos los de config.yaml)")
     ap.add_argument("--spot", action="store_true", help="usar precios del mercado spot")
+    ap.add_argument("--temporalidad", nargs="*", choices=TEMPORALIDADES, help="por defecto la de config.yaml")
     args = ap.parse_args()
 
     config = cargar_config()
     if args.pares:
         config.pares = args.pares
     configurar_logging(config.rutas.absoluta(config.rutas.logs))
-    ruta_db = config.rutas.absoluta(config.rutas.base_datos)
-    sesion = crear_sesion(crear_motor(ruta_db))
-    print(f"Base de datos: {ruta_db}")
+    temporalidades = args.temporalidad or [config.temporalidad]
 
     tipo = "spot" if args.spot else config.exchange.mercado_datos
     try:
@@ -71,22 +73,27 @@ def main() -> int:
         print(f"\r  {par:<10} hasta {pd.Timestamp(hasta, unit='ms'):%Y-%m-%d}", end="", flush=True)
 
     total, fallidos = 0, []
-    for par in validos:
-        try:
-            r = actualizar_historico(sesion, cliente, config.exchange.nombre, par, config.temporalidad, tipo,
-                                     args.dias or config.historico.dias, progreso=progreso)
-            total += r.nuevas
-            print(f"\r{par:<10} +{r.nuevas:>6} velas nuevas   huecos: {len(r.huecos)}          ")
-        except Exception as e:  # noqa: BLE001 - un par con problemas no detiene a los demás
-            guardadas = ultimo_ts(sesion, config.exchange.nombre, par, config.temporalidad)
-            print(f"\r{par:<10} [ERROR] {diagnosticar(e)}"
-                  + (f"\n           (lo descargado hasta {pd.Timestamp(guardadas, unit='ms'):%Y-%m-%d} quedó guardado)"
-                     if guardadas else ""))
-            log.exception("Error descargando %s", par)
-            fallidos.append(par)
-    print(f"\nTotal: {total} velas nuevas en {len(validos) - len(fallidos)} de {len(validos)} pares.")
+    for tf in temporalidades:
+        ruta_db = config.ruta_velas(tf)
+        sesion = crear_sesion(crear_motor(ruta_db))
+        print(f"--- Velas de {tf} → {ruta_db} ---")
+        for par in validos:
+            try:
+                r = actualizar_historico(sesion, cliente, config.exchange.nombre, par, tf, tipo,
+                                         args.dias or config.historico.dias, progreso=progreso)
+                total += r.nuevas
+                print(f"\r{par:<10} +{r.nuevas:>7} velas nuevas   huecos: {len(r.huecos)}          ")
+            except Exception as e:  # noqa: BLE001 - un par con problemas no detiene a los demás
+                guardadas = ultimo_ts(sesion, config.exchange.nombre, par, tf)
+                print(f"\r{par:<10} [ERROR] {diagnosticar(e)}"
+                      + (f"\n           (lo descargado hasta {pd.Timestamp(guardadas, unit='ms'):%Y-%m-%d} quedó guardado)"
+                         if guardadas else ""))
+                log.exception("Error descargando %s %s", par, tf)
+                fallidos.append(f"{par} {tf}")
+    n_validos = len(validos) * len(temporalidades)
+    print(f"\nTotal: {total} velas nuevas en {n_validos - len(fallidos)} de {n_validos} descargas (par y temporalidad).")
     if fallidos:
-        print(f"Pares con error: {fallidos}. Vuelve a ejecutar el comando: continuará donde se quedó.")
+        print(f"Con error: {fallidos}. Vuelve a ejecutar el comando: continuará donde se quedó.")
     return 1 if fallidos or not validos else 0
 
 

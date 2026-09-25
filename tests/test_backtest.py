@@ -303,3 +303,83 @@ def test_conclusiones_son_honestas():
     assert "DETENIDO" in textos
     assert "muestra es pequeña" in textos
     assert "No superó a comprar y mantener" in textos
+
+
+# ---------- varias temporalidades ----------
+
+def test_stop_demasiado_cerca_no_se_opera_como_en_vivo():
+    df = serie()
+    senal(df, 2, LARGO, dist_sl=0.1)    # stop a 0.1% del precio: la regla R8 (mínimo 0.2%) lo bloquea en vivo
+    senal(df, 10, LARGO, dist_sl=0.5)   # 0.5%: se opera
+    r = simular({"BTC": df}, SIN_COSTOS)
+    assert len(r.operaciones) == 1 and r.operaciones.iloc[0]["ts_senal"] == df.index[10]
+    assert any("(R8)" in e["detalle"] for e in r.eventos)
+
+
+def test_senales_alineadas_dan_el_mismo_resultado_que_los_dataframes():
+    from bot.backtest.motor import alinear
+    from bot.senales import generar_senales
+    velas = {p: velas_aleatorias(24 * 60, semilla=s) for p, s in (("A", 1), ("B", 2), ("C", 3))}
+    sen = {p: generar_senales(v, ParametrosSenal(multiplicador_volumen=1.0)) for p, v in velas.items()}
+    desde, hasta = T0 + pd.Timedelta(days=10), T0 + pd.Timedelta(days=40)
+    a = simular(sen, PB, desde, hasta)
+    b = simular(alinear(sen), PB, desde, hasta)
+    assert len(a.operaciones) > 5
+    pd.testing.assert_frame_equal(a.operaciones, b.operaciones)
+    pd.testing.assert_series_equal(a.curva, b.curva)
+
+
+def test_atajo_sin_senales_no_cambia_el_resultado(monkeypatch):
+    """Saltar las velas sin posiciones ni señales debe dar exactamente lo mismo que recorrerlas una a una."""
+    from bot.backtest import motor
+    from bot.senales import generar_senales
+    velas = {p: velas_aleatorias(24 * 90, semilla=s) for p, s in (("A", 4), ("B", 5))}
+    sen = {p: generar_senales(v, ParametrosSenal(multiplicador_volumen=1.0)) for p, v in velas.items()}
+    p = dataclasses.replace(PB, perdida_diaria_max_pct=1.0, drawdown_max_pct=3.0)  # que también haya pausas y parada
+    rapido = simular(sen, p)
+    monkeypatch.setattr(motor, "ATAJO_SIN_SENALES", False)
+    lento = simular(sen, p)
+    assert len(rapido.operaciones) > 5
+    pd.testing.assert_frame_equal(rapido.operaciones, lento.operaciones)
+    pd.testing.assert_series_equal(rapido.curva, lento.curva)
+    assert rapido.eventos == lento.eventos and rapido.pico == lento.pico and rapido.detenido == lento.detenido
+
+
+def test_walk_forward_en_15_minutos(config):
+    n = 4 * 24 * 160
+    velas = {}
+    for p, s in (("A", 1), ("B", 2)):
+        df = velas_aleatorias(n, semilla=s)
+        df.index = pd.date_range("2024-01-01", periods=n, freq="15min", tz="UTC")
+        df["volume"] *= 1 + 2 * (df.index.minute == 0)
+        velas[p] = df
+    wf = config.backtest.walk_forward.model_copy(update={"entrenamiento_meses": 2, "prueba_meses": 1,
+                                                         "min_operaciones_entrenamiento": 10})
+    wf.rejilla = wf.rejilla.model_copy(update={"multiplicador_volumen": [1.5], "atr_mult_sl": [1.5], "ratio_tp": [2.0]})
+    res = walk_forward(velas, ParametrosSenal(), PB, wf, "15m")
+    assert len(res) >= 2
+    # el calentamiento se mide en velas de 15 min, no en horas: la primera ventana empieza el primer o segundo día
+    assert res[0].ventana.inicio_entrenamiento <= pd.Timestamp("2024-01-02", tz="UTC")
+    ops = pd.concat([r.prueba.operaciones for r in res if not r.prueba.operaciones.empty])
+    assert len(ops) > 0 and (ops["ts_entrada"].dt.minute % 15 == 0).all()
+
+
+def test_informe_comparativo():
+    from bot.backtest.informe import informe_comparativo
+    from pathlib import Path
+
+    def resumen(tf, n, ret, pf, parada=None):
+        m = {"operaciones": n, "retorno_pct": ret, "factor_beneficio": pf, "max_drawdown_pct": 5.0,
+             "tasa_acierto_pct": 40.0, "expectativa_r": 0.1, "comisiones_usd": 30.0, "funding_usd": 5.0,
+             "pnl_neto_usd": ret * 10}
+        ops = pd.DataFrame({"riesgo_usd": [8.0, 2.0]})
+        return {"temporalidad": tf, "m_opt": m, "m_def": m, "bh": {"retorno_pct": 3.0}, "ops": ops, "parada": parada,
+                "eventos": [{"detalle": "stop a 0.10% del precio (R8)"}], "dias": 100, "ruta": Path(f"b_{tf}.md")}
+
+    texto = informe_comparativo([resumen("5m", 900, -4.0, 0.8), resumen("1h", 150, 3.0, 1.3),
+                                 resumen("15m", 50, 1.0, 1.1), resumen("30m", 300, 2.0, 1.2, parada=T0)], PB)
+    assert "| Métrica | 5m | 1h | 15m | 30m |" in texto
+    assert "❌ No: pierde dinero" in texto and "✅ Candidata" in texto and "⚠️ Sin conclusión" in texto
+    assert "detenido por caída máxima" in texto
+    assert "| Operaciones por día | 9.00 | 1.50 |" in texto
+    assert "| Riesgo medio real por operación (USD) | 5.00 |" in texto

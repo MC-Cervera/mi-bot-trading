@@ -140,13 +140,70 @@ def generar_informe(datos: dict) -> str:
     ev = pd.DataFrame(datos["eventos"])
     if not ev.empty:
         nombres = {"parada_drawdown": "Parada por caída máxima", "pausa_diaria": "Pausa por pérdida diaria",
-                   "senal_omitida": "Señal no operada (máx. posiciones o tamaño no viable)"}
+                   "senal_omitida": "Señal no operada (máx. posiciones, stop fuera de rango R8 o tamaño no viable)"}
         tabla = ev.assign(tipo=ev["tipo"].map(nombres).fillna(ev["tipo"])).groupby("tipo").size().to_frame("veces")
         L += ["## Eventos de riesgo", "", _tabla(tabla.rename_axis("Evento"))]
     L += ["", "## Limitaciones (léelas)", "",
           "- Los resultados pasados no garantizan resultados futuros.",
-          "- Se usan velas de 1 h: dentro de una vela no se sabe si tocó antes el stop o el objetivo; se asume el stop.",
+          f"- Se usan velas de {datos['temporalidad']}: dentro de una vela no se sabe si tocó antes el stop o el objetivo; "
+          "se asume el stop.",
           "- El funding real puede ser a favor o en contra; aquí siempre se cobra.",
           "- El mínimo de orden real de Binance varía por par (a veces más de 5 USD); se validará en la Fase 5.",
           "- No incluye noticias ni a Claude: es la línea base contra la que se medirá a Claude en paper trading."]
     return "\n".join(L) + "\n"
+
+
+def _veredicto(m: dict, parada) -> str:
+    if parada is not None:
+        return "❌ No: el bot se habría detenido por caída máxima"
+    if m["operaciones"] < 100:
+        return f"⚠️ Sin conclusión: solo {m['operaciones']} operaciones"
+    if m["retorno_pct"] > 0 and m.get("factor_beneficio", 0) > 1:
+        return "✅ Candidata a paper trading"
+    return "❌ No: pierde dinero después de costos"
+
+
+def informe_comparativo(resumenes: list[dict], pb) -> str:
+    """Una tabla con todas las temporalidades probadas, con los mismos pares, costos y reglas de riesgo."""
+    filas = [
+        ("Veredicto", lambda r: _veredicto(r["m_opt"], r["parada"])),
+        ("Operaciones (fuera de muestra)", lambda r: _f(r["m_opt"]["operaciones"], 0)),
+        ("Operaciones por día", lambda r: _f(r["m_opt"]["operaciones"] / max(r["dias"], 1), 2)),
+        ("Retorno", lambda r: _f(r["m_opt"]["retorno_pct"], 2, "%")),
+        ("Retorno con parámetros por defecto", lambda r: _f(r["m_def"]["retorno_pct"], 2, "%")),
+        ("Comprar y mantener (mismo periodo)", lambda r: _f(r["bh"]["retorno_pct"], 2, "%")),
+        ("Caída máxima (drawdown)", lambda r: _f(r["m_opt"]["max_drawdown_pct"], 2, "%")),
+        ("Tasa de acierto", lambda r: _f(r["m_opt"]["tasa_acierto_pct"], 1, "%")),
+        ("Factor de beneficio", lambda r: _f(r["m_opt"].get("factor_beneficio"), 2)),
+        ("Ganancia media en R", lambda r: _f(r["m_opt"].get("expectativa_r"), 3)),
+        ("Riesgo medio real por operación (USD)", lambda r: _f(r["ops"]["riesgo_usd"].mean(), 2) if len(r["ops"]) else "—"),
+        ("Costos (comisiones + funding, USD)", lambda r: _f(r["m_opt"]["comisiones_usd"] + r["m_opt"]["funding_usd"], 2)),
+        ("Costos / ganancia bruta", lambda r: _costos_sobre_bruto(r["m_opt"])),
+        ("Señales descartadas por stop muy cerca o lejos (R8)",
+         lambda r: _f(sum(1 for e in r["eventos"] if "(R8)" in e.get("detalle", "")), 0)),
+    ]
+    tfs = [r["temporalidad"] for r in resumenes]
+    L = ["# Comparación de temporalidades — estrategia técnica sola (sin Claude)", "",
+         f"Generado: {pd.Timestamp.now(tz='UTC'):%Y-%m-%d %H:%M} UTC", "",
+         f"Mismos pares, mismos costos (comisión {pb.comision_pct}% por lado, deslizamiento {pb.slippage_pct}%) y "
+         f"mismas reglas de riesgo (SL {pb.sl_usd} USD, máx. {pb.max_posiciones} posiciones, stop entre "
+         f"{pb.distancia_stop_min_pct}% y {pb.distancia_stop_max_pct}% del precio). Solo meses fuera de muestra.", "",
+         "| Métrica | " + " | ".join(tfs) + " |", "|---|" + "---|" * len(tfs)]
+    for nombre, f in filas:
+        L.append(f"| {nombre} | " + " | ".join(f(r) for r in resumenes) + " |")
+    L += ["", "## Cómo leerla", "",
+          "- **Candidata a paper trading** significa que fue rentable fuera de muestra con al menos 100 operaciones. "
+          "No significa que vaya a ganar: es el mínimo para probarla en paper, no para dinero real.",
+          f"- **Riesgo medio real por operación**: la regla es {pb.sl_usd} USD, pero con 1x cada posición mide como "
+          "máximo capital / máx. posiciones. Si el stop queda muy cerca (temporalidades cortas), la posición no puede "
+          "crecer lo suficiente y se arriesga menos, mientras las comisiones siguen igual.",
+          "- **Costos / ganancia bruta**: qué parte de lo ganado se fue en comisiones y funding. Más de 50% es mala señal.",
+          "- El detalle de cada temporalidad está en su propio informe:",
+          *[f"  - {r['temporalidad']}: `{r['ruta'].name}`" for r in resumenes]]
+    return "\n".join(L) + "\n"
+
+
+def _costos_sobre_bruto(m: dict) -> str:
+    costos = m.get("comisiones_usd", 0) + m.get("funding_usd", 0)
+    bruto = m.get("pnl_neto_usd", 0) + costos
+    return _f(costos / bruto * 100, 0, "%") if bruto > 0 else "más que la ganancia (bruto ≤ 0)" if costos > 0 else "—"

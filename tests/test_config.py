@@ -76,3 +76,10 @@ def test_env_example_no_contiene_secretos():
 def test_env_esta_ignorado_por_git():
     from bot.config import RAIZ
     assert ".env" in (RAIZ / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+
+def test_velas_de_otras_temporalidades_van_en_archivos_aparte(config):
+    principal = config.rutas.absoluta(config.rutas.base_datos)
+    assert config.ruta_velas(config.temporalidad) == principal
+    assert config.ruta_velas("5m") == principal.parent / "velas_5m.db"  # fuera de los respaldos diarios
+    assert config.ruta_velas("15m") != config.ruta_velas("5m")
