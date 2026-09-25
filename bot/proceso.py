@@ -23,6 +23,13 @@ ARCHIVO_CONSOLA = RAIZ / "logs" / "bot_consola.log"
 SEGUNDOS_LATIDO = 30
 LATIDO_VIGENTE_S = 150   # sin latido durante más de 2.5 min = el bot no está corriendo
 
+# Windows: consola OCULTA propia (CREATE_NO_WINDOW) y desacoplada del panel (CREATE_NEW_PROCESS_GROUP).
+# No se usa DETACHED_PROCESS: el python.exe del .venv relanza el Python real, y sin consola heredada
+# ese segundo proceso abría una ventana negra vacía; si el usuario la cerraba, el bot se detenía.
+CREATE_NO_WINDOW = 0x08000000
+CREATE_NEW_PROCESS_GROUP = 0x00000200
+FLAGS_WINDOWS = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
+
 
 @dataclass
 class EstadoProceso:
@@ -85,8 +92,7 @@ def iniciar(popen=subprocess.Popen) -> int:
     salida = open(ARCHIVO_CONSOLA, "a", encoding="utf-8")  # noqa: SIM115 - lo hereda el proceso hijo
     opciones = {"cwd": str(RAIZ), "stdout": salida, "stderr": subprocess.STDOUT, "stdin": subprocess.DEVNULL}
     if os.name == "nt":
-        # sin ventana y desacoplado del panel
-        opciones["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        opciones["creationflags"] = FLAGS_WINDOWS
     else:
         opciones["start_new_session"] = True
     proc = popen([sys.executable, str(RAIZ / "scripts" / "bot.py")], **opciones)

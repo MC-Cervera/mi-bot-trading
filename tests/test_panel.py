@@ -185,6 +185,12 @@ def test_iniciar_no_duplica_el_bot(tmp_path, monkeypatch):
         proceso.iniciar(popen=Falso)
 
 
+def test_en_windows_el_bot_arranca_sin_ventana():
+    from bot import proceso
+    assert proceso.FLAGS_WINDOWS & proceso.CREATE_NO_WINDOW
+    assert not proceso.FLAGS_WINDOWS & 0x00000008  # DETACHED_PROCESS abría una ventana vacía con el .venv
+
+
 def test_panel_muestra_boton_de_iniciar(ruta_db, monkeypatch, tmp_path):
     from streamlit.testing.v1 import AppTest
 
