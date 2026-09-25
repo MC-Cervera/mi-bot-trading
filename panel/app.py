@@ -9,6 +9,7 @@ import hmac
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -16,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from bot import proceso  # noqa: E402
 from bot.arranque import ARCHIVO_DETENER  # noqa: E402
 from bot.config import cargar_config, cargar_secretos  # noqa: E402
 from bot.db import crear_motor, crear_sesion  # noqa: E402
@@ -79,8 +81,63 @@ def ayuda(texto: str) -> None:
 
 
 # ------------------------------------------------------------------ secciones
+def texto_duracion(segundos: float) -> str:
+    segundos = int(segundos)
+    if segundos < 60:
+        return f"{segundos} s"
+    if segundos < 3600:
+        return f"{segundos // 60} min"
+    return f"{segundos // 3600} h {segundos % 3600 // 60} min"
+
+
+def control_bot(en_barra: bool = False) -> None:
+    """Estado del proceso del bot y botones para iniciarlo o detenerlo."""
+    contenedor = st.sidebar if en_barra else st
+    e = proceso.estado()
+    if ARCHIVO_DETENER.exists():
+        contenedor.error("🛑 Detenido por EMERGENCIA")
+        if not en_barra:
+            st.write("Revisa qué pasó y reactívalo desde PowerShell con `python scripts/reactivar.py`.")
+        return
+    if e.en_marcha:
+        contenedor.success(f"🟢 Bot en marcha · {texto_duracion(time.time() - (e.iniciado or time.time()))}")
+        if e.parada_solicitada:
+            contenedor.info("⏳ Deteniéndose (tarda hasta 30 s)...")
+        elif contenedor.button("⏹️ Detener bot", key=f"detener_{en_barra}",
+                               help="Apaga el bot SIN cerrar las posiciones. Para cerrar todo usa la emergencia."):
+            proceso.pedir_parada()
+            st.rerun()
+    else:
+        contenedor.warning("⚪ Bot apagado")
+        if contenedor.button("▶️ Iniciar bot", key=f"iniciar_{en_barra}", type="primary",
+                             help="Arranca el paper trading. Sigue funcionando aunque cierres el panel."):
+            try:
+                proceso.iniciar()
+                with st.spinner("Arrancando el bot..."):
+                    for _ in range(30):
+                        time.sleep(1)
+                        if proceso.estado().en_marcha:
+                            break
+                st.rerun()
+            except RuntimeError as err:
+                contenedor.error(str(err))
+        if not en_barra and proceso.ARCHIVO_CONSOLA.exists():
+            with st.expander("Últimos mensajes del bot"):
+                lineas = proceso.ARCHIVO_CONSOLA.read_text(encoding="utf-8", errors="replace").splitlines()[-25:]
+                st.code("\n".join(lineas) or "(vacío)")
+
+
 def seccion_resumen(s) -> None:
     st.header("Resumen")
+    st.subheader("🤖 Estado del bot")
+    control_bot()
+    ayuda("**Iniciar** arranca el paper trading: cada hora busca señales, cada minuto vigila los stops y cada 30 min lee "
+          "noticias. Sigue funcionando aunque cierres esta página (no si apagas o suspendes el PC). **Detener** lo apaga "
+          "sin cerrar posiciones; al volver a iniciarlo, las retoma. Para cerrar TODO usa el botón de emergencia.")
+    if not datos.operaciones(s).shape[0]:
+        st.info("Todavía no hay operaciones. Con el bot en marcha, las primeras aparecen cuando hay señales (puede tardar "
+                "horas o días). La curva de capital se registra cada hora. Para ver cómo se ve el panel con datos, usa "
+                "`python scripts/datos_demo.py` (datos simulados).")
     if ARCHIVO_DETENER.exists():
         st.error("🛑 El bot está DETENIDO por el botón de emergencia. Revisa qué pasó y reactívalo con "
                  "`python scripts/reactivar.py`.")
@@ -391,6 +448,7 @@ def main() -> None:
                    "nada de la estrategia real. Para ver tus datos reales abre el panel sin `PANEL_DB`.")
     st.sidebar.title("📈 Mi bot de trading")
     st.sidebar.caption("PAPER TRADING · dinero simulado")
+    control_bot(en_barra=True)
     eleccion = st.sidebar.radio("Sección", list(SECCIONES))
     if st.sidebar.button("🔄 Actualizar"):
         st.rerun()

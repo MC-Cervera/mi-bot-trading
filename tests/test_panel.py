@@ -146,3 +146,57 @@ def test_panel_pide_clave_si_esta_configurada(ruta_db, monkeypatch):
     assert at.error and at.error[0].value == "Clave incorrecta"
     at.text_input[0].input("secreta").run()
     assert any("Resumen" in h.value for h in at.header)
+
+
+def test_proceso_latido_y_parada(tmp_path):
+    import time
+
+    from bot import proceso
+    lat, parar = tmp_path / "latido.json", tmp_path / "PARAR"
+    assert not proceso.estado(ruta_latido=lat, ruta_parar=parar).en_marcha
+    proceso.escribir_latido(pid=123, iniciado=1000.0, ruta=lat)
+    e = proceso.estado(ruta_latido=lat, ruta_parar=parar)
+    assert e.en_marcha and e.pid == 123 and e.iniciado == 1000.0
+    assert not proceso.estado(ahora=time.time() + 600, ruta_latido=lat, ruta_parar=parar).en_marcha  # latido viejo
+    proceso.pedir_parada(parar)
+    assert proceso.estado(ruta_latido=lat, ruta_parar=parar).parada_solicitada
+    proceso.limpiar_parada(parar)
+    assert not proceso.parada_solicitada(parar)
+
+
+def test_iniciar_no_duplica_el_bot(tmp_path, monkeypatch):
+    from bot import proceso
+    monkeypatch.setattr(proceso, "ARCHIVO_LATIDO", tmp_path / "latido.json")
+    monkeypatch.setattr(proceso, "ARCHIVO_PARAR", tmp_path / "PARAR")
+    monkeypatch.setattr(proceso, "ARCHIVO_CONSOLA", tmp_path / "consola.log")
+    monkeypatch.setattr(proceso.estado, "__defaults__", (None, tmp_path / "latido.json", tmp_path / "PARAR"))
+    lanzados = []
+
+    class Falso:
+        def __init__(self, args, **kw):
+            lanzados.append((args, kw))
+            self.pid = 4321
+
+    assert proceso.iniciar(popen=Falso) == 4321
+    args, kw = lanzados[0]
+    assert args[-1].endswith("bot.py") and kw["stdin"] is not None
+    proceso.escribir_latido(pid=4321, ruta=tmp_path / "latido.json")
+    with pytest.raises(RuntimeError, match="ya está en marcha"):
+        proceso.iniciar(popen=Falso)
+
+
+def test_panel_muestra_boton_de_iniciar(ruta_db, monkeypatch, tmp_path):
+    from streamlit.testing.v1 import AppTest
+
+    from bot import proceso
+    monkeypatch.setenv("PANEL_DB", str(ruta_db))
+    monkeypatch.setenv("PANEL_CLAVE", "")
+    monkeypatch.setattr(proceso, "ARCHIVO_LATIDO", tmp_path / "latido.json")
+    monkeypatch.setattr(proceso.estado, "__defaults__", (None, tmp_path / "latido.json", tmp_path / "PARAR"))
+    at = AppTest.from_file("../panel/app.py", default_timeout=60).run()
+    assert not at.exception
+    assert any("Iniciar bot" in b.label for b in at.button)
+    proceso.escribir_latido(pid=1, ruta=tmp_path / "latido.json")
+    at.run()
+    assert any("Detener bot" in b.label for b in at.button)
+    assert any("Bot en marcha" in x.value for x in at.success)

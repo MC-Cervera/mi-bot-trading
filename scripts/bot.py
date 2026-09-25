@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor  # noqa: E402
 from apscheduler.schedulers.blocking import BlockingScheduler  # noqa: E402
 
 from bot.aprendizaje.semanal import ejecutar_revision  # noqa: E402
+from bot import proceso  # noqa: E402
 from bot.arranque import ARCHIVO_DETENER, construir  # noqa: E402
 from bot.respaldo import respaldar  # noqa: E402
 
@@ -36,6 +38,11 @@ def main() -> int:
     if ARCHIVO_DETENER.exists():
         print(f"El bot está detenido por emergencia ({ARCHIVO_DETENER}). Usa scripts/reactivar.py tras revisar.")
         return 3  # código propio: el servicio del VPS no lo reinicia (RestartPreventExitStatus=3)
+    otro = proceso.estado()
+    if not args.una_vez and otro.en_marcha and otro.pid != os.getpid():
+        print(f"Ya hay un bot en marcha (PID {otro.pid}). No se inicia otro para no duplicar operaciones.\n"
+              "Si acabas de cerrarlo, espera 2-3 minutos y vuelve a intentarlo.")
+        return 4
     config, sesion, ciclo = construir()
     if config.modo != "paper":
         print("Este script solo corre en modo paper.")
@@ -68,8 +75,24 @@ def main() -> int:
         return 0
 
     # un solo hilo: los trabajos nunca se solapan (comparten la conexión a la base de datos)
-    programador = BlockingScheduler(timezone="UTC", executors={"default": ThreadPoolExecutor(1)},
+    # "default": un solo hilo para el trabajo real (nunca se solapa: comparte la base de datos).
+    # "latido": hilo aparte, para que un ciclo largo no haga parecer que el bot se cayó.
+    programador = BlockingScheduler(timezone="UTC",
+                                    executors={"default": ThreadPoolExecutor(1), "latido": ThreadPoolExecutor(1)},
                                     job_defaults={"coalesce": True, "max_instances": 1, "misfire_grace_time": 300})
+    proceso.limpiar_parada()
+    inicio = ahora().timestamp()
+    proceso.escribir_latido(iniciado=inicio)
+
+    def latido():
+        if proceso.parada_solicitada():
+            log.warning("Parada solicitada desde el panel: apagando el bot (las posiciones siguen abiertas)")
+            proceso.limpiar_parada()
+            programador.shutdown(wait=False)
+            return
+        proceso.escribir_latido(iniciado=inicio)
+
+    programador.add_job(latido, "interval", seconds=proceso.SEGUNDOS_LATIDO, executor="latido")
     programador.add_job(seguro("ciclo", ciclo.ciclo_horario), "cron", minute=config.ejecucion.minuto_ciclo, second=5)
     programador.add_job(seguro("monitor", ciclo.monitor), "interval", seconds=config.ejecucion.segundos_monitor)
     programador.add_job(seguro("noticias", ciclo.ciclo_noticias), "interval", minutes=config.noticias.intervalo_minutos,
@@ -89,6 +112,8 @@ def main() -> int:
         programador.start()
     except (KeyboardInterrupt, SystemExit):
         pass
+    finally:
+        proceso.borrar_latido()
     ciclo.avisos.enviar("⏹️ Bot apagado")
     return 0
 
